@@ -1378,9 +1378,11 @@ const GameVisual = (() => {
 <script>
 (() => {
 const $ = s => document.querySelector(s);
+const DEV_MODE = new URLSearchParams(location.search).get('dev') === '1';
 const SAVE_SCOPE = 'keyboard-mine-pages:' + new URL('.', location.href).pathname;
 const SAVE_KEY = SAVE_SCOPE + ':v4';
 const TAKE_KEY = SAVE_SCOPE + ':take';
+const ACTIVE_SAVE_KEY = DEV_MODE ? SAVE_KEY + ':dev' : SAVE_KEY;
 let simOffset = 0;
 const now = () => Date.now() + simOffset;
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
@@ -1597,12 +1599,12 @@ function fresh(){
     st:{correct:0,wrong:0,best:0,lines:0,pulls:0,prestiges:0,blocks:0,chests:0,bosses:0,goldAll:0,maxRow:0,maxCombo:0,perfect:0,hired:0,exams:0,viruses:0,virusFail:0},last:Date.now()};
 }
 let S = fresh();
-try { const raw = localStorage.getItem(SAVE_KEY); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e){}
+try { const raw = localStorage.getItem(ACTIVE_SAVE_KEY); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e){}
 const F0 = fresh();
 S.st = Object.assign(F0.st, S.st||{}); S.up = Object.assign(F0.up, S.up||{}); S.pass = Object.assign(F0.pass, S.pass||{}); S.ach = S.ach||{}; S.equip = Object.assign(F0.equip, S.equip||{}); S.equip.on = Object.assign({hat:null,tool:null,back:null,pet:null}, S.equip.on||{});
 while (S.workers.length < WORKERS.length) S.workers.push(0);
 if (S.daily && !S.daily.v2) S.daily=null;
-function save(){ if (paused) return; S.last = now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch(e){} }
+function save(){ if (paused) return; S.last = now(); try { localStorage.setItem(ACTIVE_SAVE_KEY, JSON.stringify(S)); } catch(e){} }
 
 let B = {}, E = {};
 function recalc(){
@@ -2770,13 +2772,13 @@ $('#nameSave').onclick=e=>{ e.currentTarget.blur(); saveName(); };
 $('#show').addEventListener('click',e=>{ if (e.target.closest('#homeBtn')){ e.target.closest('#homeBtn').blur(); goHome(); } });
 
 /* ---------- 창 두 개 방지 ---------- */
-const TAB_ID=Math.random().toString(36).slice(2), OWN_KEY=SAVE_SCOPE + ':owner';
+const TAB_ID=Math.random().toString(36).slice(2), OWN_KEY=SAVE_SCOPE + ':owner' + (DEV_MODE ? ':dev' : '');
 let paused=false;
 function readOwner(){ try { return JSON.parse(localStorage.getItem(OWN_KEY)||'null'); } catch(e){ return null; } }
 function claimOwner(){ try { localStorage.setItem(OWN_KEY, JSON.stringify({id:TAB_ID,t:Date.now()})); } catch(e){} }
 function otherOwner(){ const o=readOwner(); return !!(o && o.id!==TAB_ID && Date.now()-o.t<4000); }
 function pauseDup(){ if (paused) return; paused=true; $('#dup').hidden=false; }
-$('#dupTake').onclick=()=>{ try { sessionStorage.setItem(TAKE_KEY,'1'); } catch(e){} claimOwner(); location.reload(); };
+$('#dupTake').onclick=()=>{ try { sessionStorage.setItem((TAKE_KEY + (DEV_MODE ? ':dev' : '')),'1'); } catch(e){} claimOwner(); location.reload(); };
 addEventListener('storage', e=>{ if (e.key===OWN_KEY && otherOwner()) pauseDup(); });
 setInterval(()=>{ if (paused) return; if (otherOwner()) pauseDup(); else claimOwner(); }, 1000);
 
@@ -5408,8 +5410,76 @@ function maybeShowTranscendenceReveal() {
   return true;
 }
 
+if (DEV_MODE) {
+  document.querySelector('.saveLabel').textContent = '개발용 저장';
+  const devHelp = {
+    'show me the money': '골드 10억, 보석 1만, 뽑기권 100장 추가',
+    'all items': '전설·신화 광부와 장비를 최소 Lv.1로 지급',
+    'mythic shards': '신화 광부·장비에 각각 조각 4개를 채워 도전 가능',
+    'gold medals': '모든 타자 단계 해금과 금메달 지급',
+    'transcendence': '전설 광부와 코드 한 줄 금메달을 지급해 초월 의식 준비',
+  };
+  window.km = function command(input = 'help') {
+    const action = String(input).trim().toLowerCase().replace(/\s+/g, ' ');
+    if (action === 'help') return { ...devHelp };
+    if (paused) return '열려 있는 다른 개발용 탭을 닫거나 저장 제어권을 가져오세요.';
+    if (mythicTrialOpen() || transcendenceDialogOpen() || EX.open || !$('#gacha').hidden) {
+      return '진행 중인 도전이나 결과 창을 닫고 다시 실행하세요.';
+    }
+    switch (action) {
+      case 'show me the money':
+        S.gold += 1_000_000_000;
+        S.gems += 10_000;
+        S.tickets += 100;
+        break;
+      case 'all items':
+        for (const miner of HONOR) {
+          if (miner.r >= 3) S.honor[miner.id] = Math.max(S.honor[miner.id] || 0, 1);
+        }
+        for (const item of EQUIP) {
+          if (item.r >= 3) S.equip.owned[item.id] = Math.max(S.equip.owned[item.id] || 0, 1);
+        }
+        break;
+      case 'mythic shards':
+        S.shards ??= {};
+        for (const [kind, items, owned, cap] of [
+          ['honor', HONOR, S.honor, MAX_COPIES],
+          ['equip', EQUIP, S.equip.owned, EQ_MAX],
+        ]) {
+          const shards = S.shards[kind] ??= {};
+          for (const item of items) {
+            if (item.r === 4 && (owned[item.id] || 0) < cap) shards[item.id] = 4;
+          }
+        }
+        break;
+      case 'gold medals':
+        S.unlocked = STAGES.length;
+        STAGES.forEach((_, index) => { S.medals[index] = 3; });
+        break;
+      case 'transcendence':
+        if (transcendentUnlocked()) return '특이점 제로를 이미 보유 중입니다.';
+        S.unlocked = STAGES.length;
+        S.medals[codeExamIndex] = 3;
+        for (const miner of legendaryMiners) S.honor[miner.id] = Math.max(S.honor[miner.id] || 0, 1);
+        break;
+      default:
+        return '알 수 없는 명령입니다. km("help")를 실행하세요.';
+    }
+    applyRecordedGoldRewards();
+    recalc();
+    buildStages();
+    buildMedals();
+    buildColl();
+    renderEquip();
+    renderShow();
+    updateUI();
+    save();
+    return devHelp[action];
+  };
+}
+
 /* ---------- 시작 ---------- */
-{ let take=false; try { take=sessionStorage.getItem(TAKE_KEY)==='1'; sessionStorage.removeItem(TAKE_KEY); } catch(e){}
+{ let take=false; try { take=sessionStorage.getItem((TAKE_KEY + (DEV_MODE ? ':dev' : '')))==='1'; sessionStorage.removeItem((TAKE_KEY + (DEV_MODE ? ':dev' : ''))); } catch(e){}
   if (!take && otherOwner()) pauseDup(); else claimOwner(); }
 const migratedTranscendence = migrateLegacyTranscendence();
 const goldRecordRewards = applyRecordedGoldRewards();
