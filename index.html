@@ -663,6 +663,7 @@ body{margin:0;padding:24px 24px 36px;background:radial-gradient(ellipse at 50% 0
         <div id="workers" class="pane"></div>
       </div>
       <div class="pane" id="p-gear" hidden>
+        <div class="sec">장비 강화 <span class="amt" id="gearAmt" role="group" aria-label="장비 강화 수량"><button type="button" data-a="1" class="on" aria-pressed="true">×1</button><button type="button" data-a="10" aria-pressed="false">×10</button><button type="button" data-a="max" aria-pressed="false">최대</button></span></div>
         <div class="note">장비는 단계가 오르면 이름과 모양이 바뀌고, 광산 화면에도 나타나요.</div>
         <div id="gear" class="pane"></div>
       </div>
@@ -1166,7 +1167,7 @@ function equipCardHTML(it, lv, owned=true){ return lootCard('equip',it,lv,owned)
 function fresh(){
   return {ver:5,gold:0,gems:0,tickets:0,power:180,row:0,blocks:null,boss:null,chests:0,
     workers:WORKERS.map(()=>0),up:{pick:0,gen:0,battery:0,drill:0,cart:0,glove:0},
-    honor:{},shards:{honor:{},equip:{}},fossils:0,pity:0,potions:[],unlocked:1,buy:'1',maxLayer:0,medals:{},muted:false,name:'',
+    honor:{},shards:{honor:{},equip:{}},fossils:0,pity:0,potions:[],unlocked:1,buy:'1',gearBuy:'1',maxLayer:0,medals:{},muted:false,name:'',
     equip:{owned:{},on:{hat:null,tool:null,back:null,pet:null},pity:0},
     pass:{xp:0,tier:0},daily:null,weekly:null,ach:{},
     st:{correct:0,wrong:0,best:0,lines:0,pulls:0,prestiges:0,blocks:0,chests:0,bosses:0,goldAll:0,maxRow:0,maxCombo:0,perfect:0,hired:0,exams:0,viruses:0,virusFail:0},last:Date.now()};
@@ -1797,6 +1798,36 @@ function workerOffer(index, mode = S.buy, pricingYield = workerPricingYield()) {
   return { count: requested, price, affordable: price !== null && price <= budget };
 }
 
+function gearOffer(gear, mode = S.gearBuy) {
+  const level = S.up[gear.k];
+  const maxed = level >= (gear.max ?? Infinity);
+  if (maxed || !Number.isSafeInteger(level) || level < 0) {
+    return { mode, level, count: 0, price: null, affordable: false, maxed };
+  }
+
+  const buyMax = mode === 'max';
+  const requested = buyMax ? Infinity : mode === '10' ? 10 : 1;
+  const limit = Math.min(requested, (gear.max ?? Infinity) - level);
+  const budget = Number.isFinite(S.gold) ? S.gold : 0;
+  let count = 0;
+  let price = 0;
+  while (count < limit) {
+    const nextPrice = price + gear.cost(level + count);
+    if (!Number.isFinite(nextPrice)) break;
+    if (buyMax && nextPrice > budget) {
+      if (!count) return { mode, level, count, price: nextPrice, affordable: false, maxed };
+      break;
+    }
+    price = nextPrice;
+    count++;
+  }
+
+  if (!count || (!buyMax && count !== limit)) {
+    return { mode, level, count: 0, price: null, affordable: false, maxed };
+  }
+  return { mode, level, count, price, affordable: price <= budget, maxed };
+}
+
 let wRows=[], shownW=-1;
 const visibleW = () => { let hi=-1; S.workers.forEach((o,i)=>{ if(o>0) hi=i; }); return Math.min(WORKERS.length,hi+3); };
 const drops=[];
@@ -1830,10 +1861,21 @@ function buildGear(){
   GEAR.forEach(g=>{ const r=document.createElement('div'); r.className='row';
     r.innerHTML=`<div class="ic"></div><div><div class="nm"><span class="tn"></span><em></em></div><div class="fl2"></div><div class="ds"></div></div><button class="buy"></button>`;
     const btn=r.querySelector('button');
-    btn.onclick=()=>{ btn.blur(); const l=S.up[g.k]; if(g.max&&l>=g.max) return; const c=g.cost(l); if(S.gold<c) return;
-      const t0=gearTier(g), s0=gearStat(g.k); S.gold-=c; S.up[g.k]++; const t1=gearTier(g), s1=gearStat(g.k);
-      floatAt(btn,`Lv.${l}→${l+1} · ${s1}`); r.classList.remove('up'); void r.offsetWidth; r.classList.add('up'); renderShow(g.k); renderEquip(); snd('up');
-      if (t1[0]!==t0[0]) celebrate({icon:gearArt(g,l+1),title:`${t1[0]} 완성!`,sub:`${t0[0]} → ${t1[0]}`,rew:[`${g.n} Lv.${l+1}`,`${s0} → ${s1}`],tone:'',minor:true});
+    btn.onclick = () => {
+      const quote = gRows[g.k].quote;
+      if (!quote?.affordable || quote.mode !== S.gearBuy || quote.level !== S.up[g.k] || !Number.isFinite(S.gold) || quote.price > S.gold) {
+        updateUI();
+        return;
+      }
+      const { level:l, count, price } = quote;
+      const nextLevel = l + count;
+      const t0 = gearTier(g), s0 = gearStat(g.k);
+      S.gold -= price;
+      S.up[g.k] = nextLevel;
+      save();
+      const t1 = gearTier(g), s1 = gearStat(g.k);
+      floatAt(btn,`Lv.${l}→${nextLevel} · ${s1}`); r.classList.remove('up'); void r.offsetWidth; r.classList.add('up'); renderShow(g.k); renderEquip(); snd('up');
+      if (t1[0]!==t0[0]) celebrate({icon:gearArt(g,nextLevel),title:`${t1[0]} 완성!`,sub:`${t0[0]} → ${t1[0]}`,rew:[`${g.n} Lv.${nextLevel}`,`${s0} → ${s1}`],tone:'',minor:true});
       updateUI(); };
     box.appendChild(r); gRows[g.k]={btn,r,g}; });
 }
@@ -1973,7 +2015,7 @@ const pendingFossils = () => S.maxLayer<6 ? 0 : Math.floor(Math.pow(S.maxLayer-4
 let presArm=0;
 $('#presBtn').onclick=e=>{ e.currentTarget.blur(); const f=pendingFossils(); if(f<1) return;
   if (now()-presArm>3000){ presArm=now(); $('#presBtn').textContent='정말 할까요? 한 번 더 누르기'; return; } presArm=0;
-  const keep={gems:S.gems,tickets:S.tickets,honor:S.honor,shards:S.shards,fossils:S.fossils+f,pity:S.pity,unlocked:S.unlocked,buy:S.buy,medals:S.medals,pass:S.pass,daily:S.daily,weekly:S.weekly,ach:S.ach,st:S.st,muted:S.muted,name:S.name,equip:S.equip};
+  const keep={gems:S.gems,tickets:S.tickets,honor:S.honor,shards:S.shards,fossils:S.fossils+f,pity:S.pity,unlocked:S.unlocked,buy:S.buy,gearBuy:S.gearBuy,medals:S.medals,pass:S.pass,daily:S.daily,weekly:S.weekly,ach:S.ach,st:S.st,muted:S.muted,name:S.name,equip:S.equip};
   resetCompanionRuntime();
   S=Object.assign(fresh(),keep); S.st.prestiges++; genRow(); recalc(); buildWorkers(); renderShow();
   celebrate({icon:'🦴',title:'환생 완료!',sub:'더 강해진 몸으로 처음부터 다시 파요',rew:[`🦴 고대 화석 +${f}`,`모든 힘 +${f*10}%`],tone:''}); save(); newLine(); updateUI(); };
@@ -1989,6 +2031,15 @@ $('#tabs').addEventListener('click',e=>{ const b=e.target.closest('.tab'); if(!b
   ['work','gear','gem','honor','equip','mis','cert','pres'].forEach(t=>$('#p-'+t).hidden=t!==b.dataset.t); if(b.dataset.t==='mis') renderMis(); if(b.dataset.t==='equip') renderEquip(); });
 $('#amt').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; b.blur(); S.buy=b.dataset.a;
   document.querySelectorAll('#amt button').forEach(x=>x.classList.toggle('on',x===b)); updateUI(); });
+const gearAmount = $('#gearAmt');
+const gearAmountButtons = gearAmount.querySelectorAll('button');
+gearAmount.addEventListener('click', event => {
+  const button = event.target.closest('button[data-a]');
+  if (!button) return;
+  S.gearBuy = button.dataset.a;
+  save();
+  updateUI();
+});
 $('#mute').onclick=e=>{ e.currentTarget.blur(); S.muted=!S.muted; e.currentTarget.textContent=S.muted?'🔇':'🔊'; };
 
 /* ---------- 화면 갱신 ---------- */
@@ -2021,13 +2072,29 @@ function updateUI(){
     const nextM=MILESTONES.find(m=>o<m);
     r.em.textContent=o?`${o}명`:''; r.ds.textContent=`한 명당 ${fmt(each)}/초`+(o?` · 전체 ${fmt(each*o)}/초`:'')+(nextM?` · ${nextM}명이면 ×2`:'');
     r.btn.textContent=`${S.buy==='max'?sn+'명 · ':S.buy!=='1'?'×'+sn+' · ':''}${c===null?'가격 한도':fmt(c)}`; r.btn.disabled=!affordable; });
+  for (const button of gearAmountButtons) {
+    const selected = button.dataset.a === S.gearBuy;
+    button.classList.toggle('on', selected);
+    const pressed = String(selected);
+    if (button.getAttribute('aria-pressed') !== pressed) button.setAttribute('aria-pressed', pressed);
+  }
   for (const k in gRows){ const {btn,r,g}=gRows[k], l=S.up[k]; const [tn,te,tc]=gearTier(g);
     const icon=r.querySelector('.ic');
     if(icon.dataset.level!==String(l)){ icon.innerHTML=gearArt(g,l); icon.dataset.level=String(l); } r.querySelector('.ic').style.setProperty('--tc',tc); r.querySelector('.tn').textContent=tn; r.querySelector('em').textContent='Lv.'+l;
     const nextT = g.tiers[Math.floor(l/g.every)+1]; const toNext = g.every - (l % g.every);
     r.querySelector('.fl2').textContent = nextT && (!g.max || l<g.max) ? `${toNext}레벨 더 올리면 → ${nextT[1]} ${nextT[0]}` : '최고 단계예요!';
     r.querySelector('.ds').textContent = gearStat(k);
-    if(g.max&&l>=g.max){ btn.textContent='최대'; btn.disabled=true; continue; } const c=g.cost(l); btn.textContent=fmt(c); btn.disabled=S.gold<c; }
+    const quote = gearOffer(g);
+    gRows[k].quote = quote;
+    const { count, price, affordable, maxed } = quote;
+    const quantity = S.gearBuy === '1' ? '' : `×${count} · `;
+    btn.textContent = maxed ? '최대' : price === null ? '가격 한도' : count === 0 ? '골드 부족' : `${quantity}${fmt(price)}`;
+    const description = count > 0 ? `${g.n} ${count}레벨 강화 · ${price} 골드`
+      : price !== null ? `${g.n} 다음 강화 · ${price} 골드 필요` : `${g.n} · ${btn.textContent}`;
+    btn.title = description;
+    btn.setAttribute('aria-label', description);
+    btn.disabled = !affordable;
+  }
   const gm=Math.floor(S.gems);
   for (const k in gsRows) gsRows[k].btn.disabled=gm<gsRows[k].g.cost;
   const ub=$('#unlockBtn'); if(ub) ub.classList.toggle('ready',gm>=UNLOCK_COST[S.unlocked]);
