@@ -364,6 +364,14 @@ body{margin:0;padding:24px 24px 36px;background:radial-gradient(ellipse at 50% 0
 .lootOwnership{display:flex;align-items:center;gap:4px;min-height:24px;padding:3px 5px;border:1px solid var(--ownership-line);border-radius:6px;color:var(--ownership-ink);background:var(--ownership-fill);font-size:12px;font-weight:850;line-height:1.2}
 .lootOwnership .lootLv{margin-left:auto;color:inherit;font-size:11px}
 .lootCard[data-ownership] .shardTrack{font-size:10px}
+.lootCollection{display:grid;gap:14px;min-width:0}
+.lootGroup{--group-accent:#9fb4c8;min-width:0}
+.lootGroup[data-collection-group="collecting"]{--group-accent:#edbe85}
+.lootGroupTitle{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;padding:6px 8px;border-inline-start:3px solid var(--group-accent);border-radius:5px;background:color-mix(in srgb,var(--group-accent) 12%,#13202b);color:var(--group-accent);font-size:13px}
+.lootGroupTitle span{color:#d4e0ea;font:11px var(--f-mono);white-space:nowrap}
+.lootCollection .lootCard:is([data-ownership="collecting"],[data-ownership="unowned"]) .lootWindow{background:radial-gradient(ellipse at 50% 58%,#42576c,#182635 76%)}
+.lootCollection .lootCard:is([data-ownership="collecting"],[data-ownership="unowned"]) .lootWindow::before{content:none}
+.lootCollection .lootCard:is([data-ownership="collecting"],[data-ownership="unowned"]) .lootArt{filter:brightness(0) drop-shadow(0 0 1px #8298ad) drop-shadow(0 5px 6px #050b13)}
 .lootName{font-size:13px;font-weight:800;line-height:1.25;color:#ecf2ff;min-height:1.25em;overflow-wrap:anywhere}
 .lootSkill{display:grid;gap:2px;color:#b7c7d7;font-size:10px;line-height:1.45}
 .lootSkill b{color:var(--rank);font-size:11px}.skillCommand{display:block;color:#e3d6fa;font:9px var(--f-mono);margin-top:3px}
@@ -685,7 +693,7 @@ body{margin:0;padding:24px 24px 36px;background:radial-gradient(ellipse at 50% 0
         <div class="rates" id="rates"></div>
         <div class="note" id="pity"></div>
         <div class="note" id="collNote"></div>
-        <div class="coll" id="coll"></div>
+        <div class="lootCollection" id="coll"></div>
       </div>
       <div class="pane" id="p-equip" hidden>
         <div class="note">명예 장비는 내 광부(👷)가 직접 입는 장비예요. 머리·손·등·펫 칸에 하나씩 장착하면 광산 화면 속 내 모습이 바뀌고, 내 타자 힘이 세져요. 새 장비가 더 좋으면 저절로 장착돼요.</div>
@@ -693,7 +701,7 @@ body{margin:0;padding:24px 24px 36px;background:radial-gradient(ellipse at 50% 0
         <div class="note" id="eqTotal"></div>
         <div class="gachaBtns"><button class="buy gem" id="e1">1회 뽑기 · 15💎</button><button class="buy gem" id="e10">10회 뽑기 · 135💎</button></div>
         <div class="note" id="eqPity"></div>
-        <div id="eqList" class="pane"></div>
+        <div id="eqList" class="lootCollection"></div>
       </div>
       <div class="pane" id="p-mis" hidden>
         <div class="subtabs" id="misTabs">
@@ -1994,7 +2002,7 @@ function renderEquip(){
     const control = level ? `<button class="claim" data-eq="${item.id}" ${equipped ? 'disabled' : ''}>${equipped ? '장착 중 ✓' : '장착하기'}</button>` : '';
     return `<div class="eqc">${equipCardHTML(item, level, !!level)}${control}</div>`;
   };
-  $('#eqList').innerHTML = `<div class="coll">${orderCollection('equip', EQUIP, S.equip.owned).map(card).join('')}</div>`;
+  $('#eqList').innerHTML = collectionHTML('equip', EQUIP, S.equip.owned, card);
   const wardrobe = $('#houseWardrobe');
   if (wardrobe && !$('#house').hidden) {
     wardrobe.innerHTML = SLOTS.map(([key, name]) => `<div class="sec">${name} 장비</div><div class="coll">${EQUIP.filter(item => item.slot === key).map(card).join('')}</div>`).join('');
@@ -2008,7 +2016,7 @@ $('#houseWardrobe').addEventListener('click',onEquipClick);
 
 function buildColl(){
   let have=0; const box=$('#coll');
-  box.innerHTML = orderCollection('honor', HONOR, S.honor).map(h=>{ const c=S.honor[h.id]||0; if(c) have++; return cardHTML(h,c,!!c); }).join('');
+  box.innerHTML = collectionHTML('honor', HONOR, S.honor, h => { const c=S.honor[h.id]||0; if(c) have++; return cardHTML(h,c,!!c); });
   $('#collNote').textContent=`만난 명예 광부 ${have} / ${HONOR.length} · 전설·신화는 같은 조각 5개로 완성 · 정타에 맞춰 함께 채굴`;
   const w=weights(), tot=w.reduce((a,b)=>a+b,0);
   $('#rates').innerHTML=RAR.map((r,i)=>`<span style="color:${RCOLV[i]}">${r.n} ${(w[i]/tot*100).toFixed(1)}%</span>`).join('') + `<span style="color:var(--muted);border-color:transparent">🍀 뽑기 운은 전설·신화 확률만 올려요 (최대 2배)</span>`;
@@ -2341,12 +2349,22 @@ function lootArt(kind, item) {
   return index < 0 ? item.e : GameVisual.span(atlas, index, item.e);
 }
 
-function orderCollection(kind, items, levels) {
-  const priority = item => {
-    if (levels[item.id] > 0) return 2;
-    return usesCollectibleShards(item) && collectibleShardCount(kind, item.id) > 0 ? 1 : 0;
-  };
-  return items.slice().sort((a, b) => priority(b) - priority(a) || b.r - a.r);
+function collectionHTML(kind, items, levels, card) {
+  const ownedByRarity = RAR.map(() => []);
+  const collecting = [], unowned = [];
+  for (const item of items.slice().sort((a, b) => b.r - a.r)) {
+    if (levels[item.id] > 0) ownedByRarity[item.r].push(item);
+    else if (usesCollectibleShards(item) && collectibleShardCount(kind, item.id) > 0) collecting.push(item);
+    else unowned.push(item);
+  }
+  const section = (group, title, entries, rank) => entries.length ? `
+    <section class="lootGroup" data-collection-group="${group}"${rank === undefined ? '' : ` data-rarity="${rank}" style="--group-accent:${RCOLV[rank]}"`}>
+      <h3 class="lootGroupTitle">${title}<span>${entries.length}개</span></h3>
+      <div class="coll">${entries.map(card).join('')}</div>
+    </section>` : '';
+  return ownedByRarity.map((entries, rank) => section('owned', RAR[rank].n + ' · 보유', entries, rank)).reverse().join('')
+    + section('collecting', '조각 수집 중', collecting)
+    + section('unowned', '미보유', unowned);
 }
 
 const lootOwnership = {
