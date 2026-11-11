@@ -397,6 +397,7 @@ body{margin:0;padding:24px 24px 36px;background:radial-gradient(ellipse at 50% 0
 .fragmentMark{position:absolute;width:35px;height:47px;left:calc(50% - 17px);top:calc(50% - 23px);background:conic-gradient(from 90deg,#ffffffe6,var(--rank),var(--light),#faf6ff);clip-path:polygon(54% 0,93% 32%,79% 70%,34% 100%,9% 58%,21% 25%);filter:drop-shadow(0 0 12px var(--rank))}
 .coll{grid-template-columns:repeat(auto-fill,minmax(min(136px,100%),1fr));align-items:stretch}.eqc .lootCard{height:100%}.eqc:has(.claim) .lootCard{height:auto}
 .slot{height:282px}.gaGrid.one{grid-template-columns:minmax(0,252px)}.gaGrid.one .slot{height:293px}.slot .front .lootCard{padding-bottom:22px}.celeCard{max-width:250px;width:100%}.celeBig>.lootArt{width:104px;height:104px}
+.celeBig>.lootArt[data-boss-art]{width:calc(104px * var(--art-width));height:calc(104px * var(--art-height))}
 .row.workerLoot{grid-template-columns:68px minmax(0,1fr) auto;--crew:#7d9d96}.row.workerLoot[data-grade="1"]{--crew:#71ddf8}.row.workerLoot[data-grade="2"]{--crew:#f5b574}.row.workerLoot[data-grade="3"]{--crew:#d2a1ff}
 .row.workerLoot .ic,.row .ic:has(.lootArt){width:64px;height:62px;background:radial-gradient(ellipse,color-mix(in srgb,var(--crew,var(--gem)) 25%,transparent),transparent 75%);filter:drop-shadow(0 3px 3px #03101980)}
 .row.workerLoot .nm{color:color-mix(in srgb,var(--crew) 32%,#eff7ff)}.row.workerLoot .buy{white-space:normal;min-width:62px;max-width:130px}
@@ -404,10 +405,10 @@ body{margin:0;padding:24px 24px 36px;background:radial-gradient(ellipse at 50% 0
 .loadout{display:flex;align-items:center;gap:14px;padding:11px 14px;border:1px solid color-mix(in srgb,var(--suit) 45%,#26354a);border-radius:9px;background:radial-gradient(ellipse at 12% 60%,color-mix(in srgb,var(--suit) 23%,transparent),#101c29 75%)}
 .loadoutArt{position:relative;width:112px;height:112px;flex:none}.loadoutArt .lootArt:last-child{position:absolute;right:-7px;bottom:6px;width:53px;height:53px}
 .loadoutText{display:grid;gap:4px}.loadoutText small,.loadoutText span{color:#acc3d5;font-size:11px}.loadoutText strong{color:var(--suit);font-size:17px}
-.bossStatus{position:absolute;top:18px;left:50%;transform:translateX(-50%);z-index:2;width:min(34%,310px);padding:8px 11px 7px;border:1px solid color-mix(in srgb,var(--boss) 62%,#1c2738);border-radius:8px;background:#0a1020dc;box-shadow:0 5px 20px #0006;text-align:center;color:var(--boss)}
-.bossStatus small{display:block;font-size:9px;letter-spacing:.06em}.bossStatus b{font-size:14px;letter-spacing:-.02em}.bossHp{height:6px;margin-top:5px;background:#0e1c2a;border-radius:5px;overflow:hidden}.bossHp i{display:block;height:100%;background:var(--boss);box-shadow:0 0 10px var(--boss);transition:width .16s ease-out}
+.bossStatus:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:5px 8px;padding:8px 11px;border:1px solid color-mix(in srgb,var(--boss) 62%,#1c2738);border-radius:8px;background:#0a1020;color:var(--boss)}
+.bossStatus small{font-size:9px;letter-spacing:.06em}.bossStatus #bossPhase{grid-area:1 / 2;text-align:right}.bossStatus b{grid-area:1 / 1;font-size:14px;letter-spacing:-.02em}.bossStatus .boss-fracture,.bossHp{grid-column:1 / -1}.bossHp{height:6px;background:#0e1c2a;border-radius:5px;overflow:hidden}.bossHp i{display:block;height:100%;background:var(--boss);box-shadow:0 0 10px var(--boss);transition:width .16s ease-out}
 .suitStatus{position:absolute;z-index:2;bottom:34px;left:18px;padding:3px 8px;border-radius:5px;background:#071622d9;color:var(--suit,#b8eb80);font-size:10px;font-weight:750;pointer-events:none}
-@media(max-width:620px){.bossStatus{top:86px;width:60%}.suitStatus{bottom:36px;left:10px}.row.workerLoot{grid-template-columns:58px minmax(0,1fr) auto}.row.workerLoot .ic,.row .ic:has(.lootArt){width:54px;height:54px}.gaGrid:not(.one){grid-template-columns:repeat(2,minmax(0,1fr))}.slot{height:272px}}
+@media(max-width:620px){.suitStatus{bottom:36px;left:10px}.row.workerLoot{grid-template-columns:58px minmax(0,1fr) auto}.row.workerLoot .ic,.row .ic:has(.lootArt){width:54px;height:54px}.gaGrid:not(.one){grid-template-columns:repeat(2,minmax(0,1fr))}.slot{height:272px}}
 @media(prefers-reduced-motion:reduce){.lootCard .lootArt,.bossHp i{transition:none}}
 .eqSlots>.loadout{grid-column:1/-1}.mirror:has(.loadout){height:auto;min-height:144px;padding:12px}.mirrorName{display:block;margin-top:5px;color:var(--gem);text-align:center}
 
@@ -643,7 +644,45 @@ body{margin:0;padding:24px 24px 36px;background:radial-gradient(ellipse at 50% 0
 .miningColumn .stageBottom .subline { display: none; }
 .miningColumn .stratumBar { width: clamp(32px, 11cqw, 72px); }
 .miningColumn .hitReadout { left: 14px; }
-.miningColumn .bossStatus { top: 76px; width: 54%; }
+.gameStage:has(.bossStatus:not([hidden])) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(112px, 38%);
+}
+.gameStage:has(.bossStatus:not([hidden])) :is(.stageTop, .objective, .hitReadout, .suitStatus, .stageBottom) {
+  position: static;
+}
+.gameStage:has(.bossStatus:not([hidden])) .stageTop {
+  grid-area: 1 / 1;
+  margin: 12px 4px 8px 12px;
+}
+.gameStage:has(.bossStatus:not([hidden])) .objective {
+  grid-area: 1 / 2;
+  width: auto;
+  min-width: 0;
+  margin: 12px 12px 8px 4px;
+}
+.gameStage .bossStatus:not([hidden]) { grid-area: 2 / 1 / auto / -1; margin: 0 12px 8px; }
+.miningColumn .gameStage:has(.bossStatus:not([hidden])) #mine {
+  grid-area: 3 / 1 / auto / -1;
+  height: clamp(238px, 32vh, 320px);
+}
+.gameStage:has(.bossStatus:not([hidden])) .suitStatus {
+  grid-area: 4 / 1;
+  justify-self: start;
+  margin: 5px 0 0 10px;
+}
+.gameStage:has(.bossStatus:not([hidden])) .hitReadout {
+  grid-area: 4 / 2;
+  justify-self: end;
+  align-self: center;
+  margin: 5px 12px 0 0;
+}
+.gameStage:has(.bossStatus:not([hidden])) .companionImpactBanner {
+  position: static;
+  grid-area: 5 / 1 / auto / -1;
+  margin: 5px auto 0;
+}
+.gameStage:has(.bossStatus:not([hidden])) .stageBottom { grid-area: 6 / 1 / auto / -1; }
 .bossStatus .boss-fracture { color: #edceff; font-weight: 800; }
 .banner.virus .lootArt { width: 30px; height: 30px; vertical-align: middle; }
 .gameStage.virusActive .objective { visibility: hidden; }
@@ -654,7 +693,6 @@ body{margin:0;padding:24px 24px 36px;background:radial-gradient(ellipse at 50% 0
 }
 @container (max-width: 450px) {
   .stageTop h2 { font-size: clamp(16px, 4.4cqw, 22px); }
-  .miningColumn .bossStatus { top: 76px; }
   .stageBottom { font-size: 10px; }
 }
 @media (max-width: 720px) {
@@ -1340,6 +1378,15 @@ const GameVisual = (() => {
     hero: [5, 2], workers: [4, 3], honor: [5, 4],
     fellows: [7, 4], equipment: [6, 4], gear: [6, 5], singularity: [1, 1], viruses: [3, 2],
   };
+  // The boss silhouettes cross the regular grid. These cuts follow the transparent gaps in hero.webp.
+  const bossCuts = [0, 316, 756, 1143, 1552, 1983];
+  const bossRowTop = 396, heroAtlasHeight = 793;
+  function bossFrame(key, index) {
+    if (key !== 'hero' || index < 5 || index > 9) return null;
+    const left = bossCuts[index - 5], right = bossCuts[index - 4];
+    const width = right - left, height = heroAtlasHeight - bossRowTop;
+    return { left, top:bossRowTop, width, height };
+  }
   const images = {};
   for (const [key, src] of Object.entries(sources)) {
     const img = new Image();
@@ -1349,6 +1396,13 @@ const GameVisual = (() => {
   }
   function span(key, index, fallback = '', hue = 0) {
     if (!images[key]) return fallback;
+    const frame = bossFrame(key, index);
+    if (frame) {
+      const atlasWidth = bossCuts[bossCuts.length - 1];
+      const x = frame.left / (atlasWidth - frame.width) * 100;
+      const size = Math.max(frame.width, frame.height);
+      return `<span class="lootArt" aria-hidden="true" data-atlas="${key}" data-sprite="${index}" data-boss-art style="--atlas:var(--atlas-${key});--ax:${x}%;--ay:100%;--aw:${atlasWidth / frame.width * 100}%;--ah:${heroAtlasHeight / frame.height * 100}%;--art-width:${frame.width / size};--art-height:${frame.height / size};--hue:${hue}deg"></span>`;
+    }
     const [cols, rows] = grids[key];
     const col = index % cols;
     const row = Math.floor(index / cols);
@@ -1363,15 +1417,18 @@ const GameVisual = (() => {
       return;
     }
     const [cols, rows] = grids[key];
-    const sw = img.naturalWidth / cols;
-    const sh = img.naturalHeight / rows;
+    const frame = bossFrame(key, index);
+    const sw = frame?.width ?? img.naturalWidth / cols;
+    const sh = frame?.height ?? img.naturalHeight / rows;
+    const sx = frame?.left ?? index % cols * sw;
+    const sy = frame?.top ?? Math.floor(index / cols) * sh;
     const scale = size / Math.max(sw, sh);
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
     ctx.globalAlpha *= alpha;
     if (hue) ctx.filter = `hue-rotate(${hue}deg)`;
-    ctx.drawImage(img, index % cols * sw, Math.floor(index / cols) * sh, sw, sh,
+    ctx.drawImage(img, sx, sy, sw, sh,
       -sw * scale / 2, -sh * scale / 2, sw * scale, sh * scale);
     ctx.restore();
   }
@@ -2626,7 +2683,7 @@ function drawEquipped(item, x, y, size, angle=0) {
 }
 function drawMineBoss(x, ground, block, time) {
   const boss = bossVisual();
-  const size = block * (1.9 + boss.grade * .38);
+  const size = Math.min(block * (1.9 + boss.grade * .38), (ground - 9) / .9);
   const y = ground - size * .40;
   const pulse = reducedMotion ? .5 : (1 + Math.sin(time / 220)) / 2;
   const phase = 1 - Math.max(0,S.boss.hp / S.boss.max);
@@ -2642,6 +2699,20 @@ function drawMineBoss(x, ground, block, time) {
   ctx.restore();
   GameVisual.draw(ctx,'hero',5+boss.grade,x,y,size,{hue:boss.hue,fallback:'🪨'});
   return { x, y, size };
+}
+function bossCrewLine(w, h, block, ground, bossTarget, count) {
+  const top = ground + bossTarget.size * .1 + 10;
+  const feet = h - 16;
+  const slot = Math.min(block * 1.12, (w - 28) / count);
+  const sizeLimit = Math.min(slot * .89, feet - top - 2);
+  const shade = ctx.createLinearGradient(0, top, 0, h);
+  shade.addColorStop(0, '#07121bd4');
+  shade.addColorStop(1, '#07121bf5');
+  ctx.fillStyle = shade;
+  ctx.fillRect(0, top, w, h - top);
+  ctx.fillStyle = '#68858b40';
+  ctx.fillRect(0, top, w, 1);
+  return { feet, slot, sizeLimit };
 }
 function drawMinePlayer(x, y, block, time, busy, suit) {
   const bodySize = block * (1.55 + suit.grade * .10);
@@ -2673,7 +2744,8 @@ function drawMine(t){
   const dpr=Math.min(devicePixelRatio||1,2),w=cv.clientWidth,h=cv.clientHeight;
   if (w <= 34 || h === 0) return;
   if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}ctx.setTransform(dpr,0,0,dpr,0,0);
-  const pt=performance.now(),s=Math.min(58,(w-34)/COLS),gx=(w-s*COLS)/2,faceY=h*.73,sy=faceY-s*.46,powered=S.power>0&&rawDps()>0,L=layerDef(curLayer());
+  const pt=performance.now(),s=Math.min(58,(w-34)/COLS),gx=(w-s*COLS)/2;
+  const faceY=h*(S.boss ? .68 : .73),sy=faceY-s*.46,powered=S.power>0&&rawDps()>0;
   ctx.fillStyle='#0a1720';ctx.fillRect(0,0,w,h);
   if(caveArt.complete&&caveArt.naturalWidth){const scale=Math.max(w/caveArt.naturalWidth,h/caveArt.naturalHeight);ctx.drawImage(caveArt,(w-caveArt.naturalWidth*scale)/2,(h-caveArt.naturalHeight*scale)/2,caveArt.naturalWidth*scale,caveArt.naturalHeight*scale)}
   const shade=ctx.createLinearGradient(0,0,0,h);shade.addColorStop(0,'#04101955');shade.addColorStop(.5,'#09141c22');shade.addColorStop(1,'#040b12ee');ctx.fillStyle=shade;ctx.fillRect(0,0,w,h);
@@ -2688,7 +2760,11 @@ function drawMine(t){
   if(w>620){ctx.fillStyle='#0b1a22';ctx.fillRect(left-22,105,18,faceY-100);ctx.fillRect(right+4,105,18,faceY-100);ctx.fillStyle='#5e716755';ctx.fillRect(left-20,105,3,faceY-100);ctx.fillRect(right+5,105,3,faceY-100);ctx.fillStyle='#222f34';ctx.fillRect(left-28,125,right-left+58,10);ctx.fillStyle='#76827666';ctx.fillRect(left-28,125,right-left+58,2);for(let yy=148;yy<faceY;yy+=44){ctx.fillStyle='#658380';ctx.beginPath();ctx.arc(left-12,yy,2,0,6.28);ctx.arc(right+12,yy,2,0,6.28);ctx.fill()}}
   const beamY=faceY-s*.1;ctx.fillStyle='#0b1219';ctx.fillRect(gx-30,beamY,s*COLS+60,13);ctx.fillStyle='#9c8360';ctx.fillRect(gx-30,beamY,s*COLS+60,3);ctx.fillStyle='#3e4845';ctx.fillRect(gx-30,beamY+7,s*COLS+60,3);
   let tc=S.boss?3:S.blocks.findIndex(b=>b.hp>0&&b.t!=='chest');if(tc<0)tc=0;
-  const target=S.boss?gx+s*.9:gx+tc*s+s/2;if(!smoothPlayerX)smoothPlayerX=target;smoothPlayerX+=(target-smoothPlayerX)*.16;const px=away?gx+s*3.5:smoothPlayerX,py=away?sy-70*Math.sin(Math.min(1,Math.abs(S.row-viewRow)/20)*1.57):sy;
+  const target=S.boss ? gx+s*.84 : gx+tc*s+s/2;
+  if(!smoothPlayerX)smoothPlayerX=target;
+  smoothPlayerX+=(target-smoothPlayerX)*.16;
+  const playerX=S.boss ? target : smoothPlayerX;
+  const px=away ? gx+s*3.5 : playerX,py=away ? sy-70*Math.sin(Math.min(1,Math.abs(S.row-viewRow)/20)*1.57) : sy;
   if(lastVisualRow!==S.row){lastVisualRow=S.row;for(let i=0;i<18;i++)parts.push({x:gx+Math.random()*s*COLS,y:faceY+Math.random()*s,vx:(Math.random()-.5)*3,vy:-Math.random()*3,life:1,c:'#8cbaa5'})}
   // Descending layers, physical ore blocks.
   const drop=Math.min(s,(S.row-viewRow)*s*.2);for(let r=0;r<3;r++){const yy=faceY+r*s+drop,ld=layerDef(curLayer()+Math.floor(r/3));if(r===0&&S.boss){ctx.fillStyle='#17232a';ctx.fillRect(gx,yy,s*COLS,s);}else for(let c=0;c<COLS;c++){const b=r===0?S.blocks[c]:null,xx=gx+c*s;if(b&&b.hp<=0){ctx.fillStyle='#07121bcc';ctx.fillRect(xx,yy,s,s);continue}drawBlock(xx,yy,s,ld.band,r===0?'#86d1b3':ld.ore,S.row+r,c,b?1-b.hp/b.max:0);if(b&&b.t==='chest')emoji('🧰',xx+s/2,yy+s*.5,s*.78)}if(r>0){ctx.fillStyle=`rgba(4,10,18,${.35+r*.18})`;ctx.fillRect(gx,yy,s*COLS,s)}}
@@ -2699,26 +2775,29 @@ function drawMine(t){
     drawGearSprite('battery',left-140,faceY-s*.36,53);
     drawGearSprite('cart',right+97,faceY-s*.37,70);
   }
-  const bossTarget = S.boss ? drawMineBoss(gx+s*3.8,faceY+drop,s,t) : null;
+  const bossTarget = S.boss ? drawMineBoss(gx+s*3.8,faceY,s,t) : null;
   const suit = playerVisual();
   const glow=ctx.createRadialGradient(px,py,1,px,py,s*1.7);
   glow.addColorStop(0,suit.color+'43');glow.addColorStop(1,suit.color+'00');
   ctx.fillStyle=glow;ctx.fillRect(px-s*2,py-s*2,s*4,s*4);
   const list=spriteList();
+  const crewLine = bossTarget && list.length ? bossCrewLine(w, h, s, faceY, bossTarget, list.length) : null;
   list.forEach((sp,i)=>{
-    const x=gx+s*COLS-s*(.33+i*.76);
+    const x = crewLine ? w / 2 + (i - (list.length - 1) / 2) * crewLine.slot : gx+s*COLS-s*(.33+i*.76);
     const bob=reducedMotion?0:Math.sin(t/150+i)*2;
-    const size=s*(sp.id ? .76+.11*sp.grade : .8+sp.index*.026);
-    const y=faceY-size*.46+bob;
+    const spriteSize=s*(sp.id ? .76+.11*sp.grade : .8+sp.index*.026);
+    const size = crewLine ? Math.min(spriteSize, crewLine.sizeLimit) : spriteSize;
+    const y = crewLine ? crewLine.feet - size * .5 + bob : faceY-size*.46+bob;
     sp.x=x; sp.y=y;
     GameVisual.draw(ctx,sp.atlas,sp.index,x,y,size,{alpha:sp.id||powered ? 1 : .75,fallback:sp.fallback});
-    if(sp.n>1){ctx.fillStyle='#d4e9f4';ctx.font='10px monospace';ctx.textAlign='center';ctx.fillText('×'+sp.n,x,faceY+11);}
+    if(sp.n>1){ctx.fillStyle='#d4e9f4';ctx.font='10px monospace';ctx.textAlign='center';ctx.fillText('×'+sp.n,x,(crewLine?.feet ?? faceY)+11);}
   });
   const busy=pt-lastKeyT<220&&!gamePaused;
-  drawMinePlayer(px,py,s,t,busy,suit);
-  if (codeEchoActive()) drawMineCodeEcho(px + s * 0.86, py - s * 0.34, s, pt, busy);
+  const playerBlock = bossTarget ? s * .9 : s;
+  drawMinePlayer(px,py,playerBlock,t,busy,suit);
+  if (codeEchoActive()) drawMineCodeEcho(px + playerBlock * 0.86, py - playerBlock * 0.34, playerBlock, pt, busy);
   if(away){ctx.strokeStyle='#a9a58c';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px,0);ctx.lineTo(px,py-s*.6);ctx.stroke();ctx.strokeStyle='#a08a5f';ctx.strokeRect(px-s*.6,py-s*.65,s*1.2,s*1.3)}
-  for(let k=drops.length-1;k>=0;k--){const d=drops[k],a=(pt-d.t)/700;if(a<0)continue;if(a>1.4){drops.splice(k,1);continue}GameVisual.draw(ctx,'workers',d.index,gx+s*COLS*(.35+d.x*.6),a<1?-s+(sy+s)*a*a:sy,s*.95,{fallback:d.e})}
+  for(let k=drops.length-1;k>=0;k--){const d=drops[k],a=(pt-d.t)/700;if(a<0)continue;if(a>1.4){drops.splice(k,1);continue}if(!bossTarget)GameVisual.draw(ctx,'workers',d.index,gx+s*COLS*(.35+d.x*.6),a<1?-s+(sy+s)*a*a:sy,s*.95,{fallback:d.e})}
   if(pAcc>0&&pt-lastPPop>220){fx.push({k:'pg',t:pt,v:pAcc});pAcc=0;lastPPop=pt}
   for(let k=fx.length-1;k>=0;k--){const e=fx[k],age=(pt-e.t)/1000;if(age>1){fx.splice(k,1);continue}const xx=gx+(e.c??tc)*s+s/2;if((e.k==='hit'||e.k==='break'||e.k==='bossHit')&&!e.done){e.done=1;for(let q=0;q<(e.k==='break'?18:6);q++)parts.push({x:xx,y:faceY+5,vx:(Math.random()-.5)*6,vy:-Math.random()*5-1,life:1,c:q%3?'#e7bb71':'#9ce8cb'})}if(e.k==='pg'||e.k==='wg'){ctx.globalAlpha=Math.max(0,1-age);ctx.fillStyle=e.k==='pg'?'#f7dba3':'#94dcc0';ctx.font='bold 13px monospace';ctx.textAlign='center';ctx.fillText('+'+fmt(e.v),e.k==='pg'?px:e.x,py-s*.85-age*28);ctx.globalAlpha=1}if(e.k==='hit'&&age<.12){ctx.strokeStyle=`rgba(228,255,206,${1-age*8})`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(xx,faceY+5,6+age*80,0,6.28);ctx.stroke()}}
   for(let k=parts.length-1;k>=0;k--){const p=parts[k];if(!gamePaused){p.x+=p.vx;p.y+=p.vy;p.vy+=.17;p.life-=.026}if(p.life<=0){parts.splice(k,1);continue}ctx.globalAlpha=p.life;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,2+p.life*2,2+p.life*2)}ctx.globalAlpha=1;if(parts.length>180)parts.splice(0,parts.length-180);
@@ -3586,8 +3665,6 @@ function companionFlight(frame, profile, target, playerY, width, height) {
     };
   } else if (profile === 'beam' || frame.style === 'meteor') {
     start.y = height * 0.07;
-  } else if (frame.style === 'dive') {
-    start.y = height * 0.14;
   } else if (profile === 'water' || profile === 'guard') {
     start.y = Math.min(height * 0.88, Math.max(height * 0.56, playerY));
   }
@@ -3615,6 +3692,162 @@ function traceCompanionFlight(ctx, flight, tail, head) {
     const point = companionFlightPoint(flight, tail + (head - tail) * sample / 12);
     ctx.lineTo(point.x, point.y);
   }
+}
+
+function fireDiveGlow(ctx, x, y, radius, center, edge) {
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+  glow.addColorStop(0, center);
+  glow.addColorStop(0.38, edge);
+  glow.addColorStop(1, '#ff541000');
+  ctx.fillStyle = glow;
+  ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+}
+
+// The local x axis points toward the impact. Each tongue burns from a bright
+// root to an irregular tip flowing back along the dive or away from the blast.
+function fireDiveTongue(ctx, length, offset, width, curl, heat) {
+  const paint = ctx.createLinearGradient(-length, 0, 0, 0);
+  paint.addColorStop(0, '#ff420800');
+  paint.addColorStop(0.24, '#ff4c1570');
+  paint.addColorStop(0.57, '#ff9b1ce6');
+  paint.addColorStop(0.83, '#ffd43b');
+  paint.addColorStop(1, heat);
+  ctx.fillStyle = paint;
+  ctx.beginPath();
+  ctx.moveTo(0.14, 0);
+  ctx.bezierCurveTo(-length * 0.26, width, -length * 0.51, offset + width, -length * 0.73, offset + curl * 0.28);
+  ctx.quadraticCurveTo(-length * 0.87, offset + curl * 0.66, -length, offset + curl);
+  ctx.bezierCurveTo(-length * 0.74, offset + curl * 0.92, -length * 0.60, offset - width, -length * 0.36, offset * 0.40 - width);
+  ctx.quadraticCurveTo(-length * 0.12, -width, 0.14, 0);
+  ctx.fill();
+}
+
+function drawFireDiveFlight(ctx, target, progress, size, width, height) {
+  const offset = Math.min(width * 0.10, size * 1.55) * (target.x > width / 2 ? -1 : 1);
+  const drop = Math.max(size * 3.8, Math.min(height * 0.64, target.y + size * 0.55));
+  const flight = {
+    start:{ x:target.x + offset, y:target.y - drop },
+    bend:{ x:target.x + offset * 0.86, y:target.y - drop * 0.52 },
+    end:target,
+  };
+  const t = progress ** 1.37;
+  const head = companionFlightPoint(flight, t);
+  const ahead = companionFlightPoint(flight, t + 0.012);
+  ctx.save();
+  ctx.translate(head.x, head.y);
+  ctx.rotate(Math.atan2(ahead.y - head.y, ahead.x - head.x));
+  ctx.scale(size, size);
+  ctx.globalAlpha = Math.min(1, 0.2 + progress * 5);
+  fireDiveGlow(ctx, -1.1, 0, 2.55, '#ffbd3396', '#ff561149');
+  const visibility = ctx.globalAlpha;
+  const wake = 0.72 + progress * 0.35;
+  for (let index = 0; index < 16; index++) {
+    const spread = (index / 15 - 0.5) * 1.45;
+    const flicker = Math.sin(index * 8.13 + progress * 23);
+    const reach = (1.1 + (index * 7 % 16) / 16 * 2.45 + flicker * 0.23) * wake;
+    ctx.save();
+    ctx.translate(-0.45 - Math.abs(spread) * 0.5, spread * 0.45);
+    ctx.globalAlpha = visibility * (0.48 + index % 4 * 0.12);
+    fireDiveTongue(ctx, reach, spread * 0.61, 0.10 + index % 4 * 0.04, spread * 0.44 + flicker * 0.25,
+      index % 4 === 0 ? '#fffbc4' : '#ffb638');
+    ctx.restore();
+  }
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  for (let index = 0; index < 11; index++) {
+    const drift = Math.sin(index * 4.7 + progress * 14);
+    const length = (1.6 + index % 6 * 0.31) * wake;
+    const side = (index / 10 - 0.5) * 1.28;
+    const thread = ctx.createLinearGradient(-length, 0, -0.24, 0);
+    thread.addColorStop(0, '#ff8c2200');
+    thread.addColorStop(0.5, '#ff9f2ea0');
+    thread.addColorStop(1, index % 3 === 0 ? '#fff1a9' : '#ffd15c');
+    ctx.strokeStyle = thread;
+    ctx.globalAlpha = visibility * (0.56 + index % 3 * 0.15);
+    ctx.lineWidth = 0.019 + index % 4 * 0.014;
+    ctx.beginPath();
+    ctx.moveTo(-length, side + drift * 0.28);
+    ctx.bezierCurveTo(-length * 0.73, side - drift * 0.26, -length * 0.44, side * 0.45 + drift * 0.18, -0.24, side * 0.15);
+    ctx.stroke();
+  }
+  const core = ctx.createLinearGradient(-3.6, 0, 0.22, 0);
+  core.addColorStop(0, '#ffbc3200');
+  core.addColorStop(0.57, '#ffd049');
+  core.addColorStop(0.84, '#fff49c');
+  core.addColorStop(1, '#fffdee');
+  ctx.globalAlpha = visibility;
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.moveTo(0.25, 0);
+  ctx.quadraticCurveTo(-0.22, -0.13, -1.22, -0.14);
+  ctx.lineTo(-3.6 * wake, 0);
+  ctx.quadraticCurveTo(-0.5, 0.11, 0.25, 0);
+  ctx.fill();
+  for (let index = 0; index < 29; index++) {
+    const trail = (index * 0.618 + progress * 1.4) % 1;
+    const x = -0.35 - trail * 4.0 * wake;
+    const drift = Math.sin(index * 7.13 + progress * 8) * (0.18 + trail * 1.2);
+    ctx.globalAlpha = (1 - trail) * 0.82;
+    ctx.strokeStyle = index % 4 === 0 ? '#fffadb' : '#ff923e';
+    ctx.lineWidth = 0.014 + index % 4 * 0.011;
+    ctx.beginPath();
+    ctx.moveTo(x - 0.16 - trail * 0.24, drift * 1.12);
+    ctx.lineTo(x, drift);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawFireDiveImpact(ctx, target, progress, size, reduced) {
+  const fade = (1 - progress) ** 1.65;
+  const travel = 1 - (1 - progress) ** 2.8;
+  ctx.save();
+  ctx.translate(target.x, target.y);
+  ctx.scale(size, size);
+  ctx.globalAlpha = fade * (reduced ? 0.65 : 1);
+  fireDiveGlow(ctx, 0, -0.22, 2.55 + travel * 0.6, '#ffbc426a', '#ff601e47');
+  if (!reduced) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    const ring = 0.35 + travel * 2.95;
+    for (let index = 0; index < 8; index++) {
+      const angle = index * Math.PI / 4;
+      ctx.globalAlpha = fade * (1 - progress) * (0.42 + index % 3 * 0.13);
+      ctx.strokeStyle = index % 3 === 0 ? '#fff0a4' : '#ff9a31';
+      ctx.lineWidth = 0.027 + (1 - travel) * 0.025;
+      ctx.beginPath();
+      ctx.ellipse(0, 0.22, ring, ring * 0.29, 0, angle, angle + 0.40 + index % 3 * 0.11);
+      ctx.stroke();
+    }
+    for (let index = 0; index < 13; index++) {
+      const side = (index / 12 - 0.5) * 2;
+      ctx.save();
+      ctx.translate(side * travel * 1.23, 0.10 + Math.abs(side) * 0.22);
+      ctx.rotate(Math.PI / 2 + side * 1.0);
+      ctx.globalAlpha = fade * (0.7 + index % 3 * 0.15);
+      fireDiveTongue(ctx, (0.75 + travel * 2.05) * (1 - Math.abs(side) * 0.47) * (0.64 + index % 4 * 0.12),
+        side * 0.32, 0.16 + index % 4 * 0.045, Math.sin(index * 4.5 + progress * 12) * 0.35, '#fff4ae');
+      ctx.restore();
+    }
+    for (let index = 0; index < 48; index++) {
+      const angle = index * 2.39996;
+      const speed = 0.85 + (index * 13 % 23) / 23 * 3.0;
+      const distance = (0.22 + travel) * speed;
+      const x = Math.cos(angle) * distance;
+      const y = Math.sin(angle) * distance * 0.62 - travel * 0.62 + progress ** 2 * 0.55;
+      const streak = 0.15 + index % 5 * 0.035;
+      ctx.globalAlpha = fade * (0.38 + index % 6 * 0.12);
+      ctx.strokeStyle = index % 4 === 0 ? '#fff4b4' : index % 3 === 0 ? '#ff5526' : '#ffa63c';
+      ctx.lineWidth = 0.015 + index % 4 * 0.013;
+      ctx.beginPath();
+      ctx.moveTo(x - Math.cos(angle) * streak, y - Math.sin(angle) * streak * 0.62);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = fade * (reduced ? 0.62 : (1 - progress) ** 3);
+  fireDiveGlow(ctx, 0, 0, 1.04 + travel * 0.44, '#ffffe8', '#ffc547b0');
+  ctx.restore();
 }
 
 function drawCompanionProjectile(ctx, flight, progress, frame, profile, size, opacity) {
@@ -3764,14 +3997,11 @@ function drawCompanionCollision(ctx, target, progress, frame, profile, size, opa
 }
 
 function drawCompanionImpact(mineContext, { time, gx, s, faceY, bossTarget, virusTarget, oreTarget, playerY }) {
-  if (bossTarget && Number.isFinite(bossTarget.x) && Number.isFinite(bossTarget.y) && bossTarget.size > 0) {
-    lastCompanionBossTarget = { x:bossTarget.x, y:bossTarget.y, size:bossTarget.size, time };
-  }
   if (virusTarget) lastCompanionVirusTarget = { ...virusTarget, time };
   while (companionImpactFrames.length && companionImpactFrames[0].time + companionImpactFrames[0].duration <= time) {
     companionImpactFrames.shift();
   }
-  if (!companionImpactFrames.length || !(s > 0)) {
+  if ((!companionImpactFrames.length && !bossTarget) || !(s > 0)) {
     if (companionImpactCanvas && !companionImpactCanvas.hidden) companionImpactCanvas.hidden = true;
     return;
   }
@@ -3782,12 +4012,20 @@ function drawCompanionImpact(mineContext, { time, gx, s, faceY, bossTarget, viru
     if (companionImpactCanvas && !companionImpactCanvas.hidden) companionImpactCanvas.hidden = true;
     return;
   }
-  const ctx = prepareCompanionOverlay(width, height);
-  if (!ctx) return;
-
   const scaleX = bounds.width / Math.max(1, mine.clientWidth);
   const scaleY = bounds.height / Math.max(1, mine.clientHeight);
   const toScreen = (x, y) => ({ x: bounds.left + x * scaleX, y: bounds.top + y * scaleY });
+  if (bossTarget && Number.isFinite(bossTarget.x) && Number.isFinite(bossTarget.y) && bossTarget.size > 0) {
+    const screen = toScreen(bossTarget.x, bossTarget.y);
+    lastCompanionBossTarget = { ...bossTarget, time, pageX:screen.x + scrollX, pageY:screen.y + scrollY };
+  }
+  if (!companionImpactFrames.length) {
+    if (companionImpactCanvas && !companionImpactCanvas.hidden) companionImpactCanvas.hidden = true;
+    return;
+  }
+  const ctx = prepareCompanionOverlay(width, height);
+  if (!ctx) return;
+
   const recentBoss = lastCompanionBossTarget && time - lastCompanionBossTarget.time <= 1100 ? lastCompanionBossTarget : null;
   const recentVirus = lastCompanionVirusTarget && time - lastCompanionVirusTarget.time <= 1100 ? lastCompanionVirusTarget : null;
   const casterY = bounds.top + (Number.isFinite(playerY) ? playerY : faceY) * scaleY;
@@ -3798,8 +4036,16 @@ function drawCompanionImpact(mineContext, { time, gx, s, faceY, bossTarget, viru
     const primary = frame.phase === 'cast';
     const localTarget = frame.boss ? recentBoss || { x:gx + s * 3.8, y:faceY - s * 0.86, size:s * 2 }
       : (frame.style === 'intercept' && recentVirus) || oreTarget || { x:gx + s * COLS / 2, y:faceY + s * 0.08, size:s * 1.7 };
-    const target = toScreen(localTarget.x, localTarget.y);
+    const finishedBoss = primary && frame.style === 'dive' && frame.boss && !bossTarget && recentBoss;
+    const target = finishedBoss ? { x:recentBoss.pageX - scrollX, y:recentBoss.pageY - scrollY } : toScreen(localTarget.x, localTarget.y);
     const size = Math.max(17, Math.min(width * 0.13, 86, localTarget.size * scaleX * (primary ? 0.56 : 0.38)));
+    if (primary && frame.style === 'dive') {
+      const fireSize = Math.min(Math.max(size * 1.12, 34), width * 0.105, 72);
+      const contact = reduced ? 0 : 0.43;
+      if (age < contact) drawFireDiveFlight(ctx, target, age / contact, fireSize, width, height);
+      else drawFireDiveImpact(ctx, target, (age - contact) / (1 - contact), fireSize, reduced);
+      continue;
+    }
     const opacity = reduced ? 0.55 : primary ? 0.86 : 0.68;
     const profile = companionAttackProfiles[frame.style === 'intercept' ? 'meteor' : frame.style] || 'energy';
     const impactAt = reduced ? 0 : profile === 'beam' ? 0.31 : 0.47;
