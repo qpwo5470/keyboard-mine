@@ -1785,21 +1785,11 @@ function renderShow(flashKey){
 
 /* ---------- 상점 ---------- */
 const WORKER_PRICE_SCALE = [1, 1.5, 2.2, 3, 4, 5, 6.5, 8, 10, 12.5, 16, 20];
+const WORKER_RECOVERY_SECONDS = [0, 0, 0, 0, 25, 45, 65, 90, 120, 180, 310, 335];
 
 function workerPricingYield() {
-  const tapBySlot = {};
-  for (const item of EQUIP) {
-    const level = S.equip.owned[item.id];
-    if (!level || !item.fx.tap) continue;
-    tapBySlot[item.slot] = Math.max(tapBySlot[item.slot] || 0, item.fx.tap * eqF(level));
-  }
-  const tapMult = 1 + Object.values(tapBySlot).reduce((sum, value) => sum + value, 0);
-  const baseComboCap = comboCap() - Math.round(E.combo);
-  const fullComboMult = 1 + baseComboCap / 50;
-  // Estimate worker-generated gold while typing 150 correct keys/min in fever.
-  // The highest owned tap bonus per slot keeps the quote stable when swapping gear.
-  const typingYield = 2 + 2.5 * 0.25 * fullComboMult * 2 * tapMult;
-  return baseDpsMult(false) * vph() * typingYield;
+  // Use permanent gold per point of idle production, without consumables or typing bonuses.
+  return baseDpsMult(false) * vph();
 }
 
 function workerOffer(index, mode = S.buy, pricingYield = workerPricingYield()) {
@@ -1807,12 +1797,13 @@ function workerOffer(index, mode = S.buy, pricingYield = workerPricingYield()) {
   const owned = S.workers[index];
   const basePrice = worker.c * WORKER_PRICE_SCALE[index];
   const growth = 1.2 + 0.005 * Math.min(index, 8);
-  const otherDps = WORKERS.reduce((sum, peer, i) => {
+  const recovery = WORKER_RECOVERY_SECONDS[index];
+  const otherDps = recovery ? WORKERS.reduce((sum, peer, i) => {
     if (i === index) return sum;
     const count = S.workers[i];
     // More advanced crews contribute at this tier's rate so earlier hires stay attainable.
     return sum + Math.min(worker.d, peer.d) * count * milestoneMult(count);
-  }, 0);
+  }, 0) : 0;
   const max = mode === 'max';
   const requested = String(mode) === '10' ? 10 : 1;
   const budget = Number.isFinite(S.gold) ? S.gold : 0;
@@ -1821,10 +1812,8 @@ function workerOffer(index, mode = S.buy, pricingYield = workerPricingYield()) {
   let firstPrice = null;
   while (max || count < requested) {
     const prior = owned + count;
-    const crewDps = otherDps + worker.d * prior * milestoneMult(prior);
-    const seconds = 5 + 5 * index + 2 * Math.sqrt(prior);
-    const incomeFloor = crewDps > 0 && (index !== 0 || prior !== 0)
-      ? crewDps * pricingYield * seconds
+    const incomeFloor = recovery
+      ? (otherDps + worker.d * prior * milestoneMult(prior)) * pricingYield * recovery
       : 0;
     const price = Math.ceil(Math.max(basePrice * Math.pow(growth, prior), incomeFloor));
     const nextTotal = total + price;
