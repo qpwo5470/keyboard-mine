@@ -1059,6 +1059,11 @@ body{margin:0;padding:24px 24px 36px;background:radial-gradient(ellipse at 50% 0
   .transcendenceCinematic * { animation: none !important; transition: none !important; }
 }
 
+.transcendenceUpgradeDelta { grid-column:1 / -1; }
+.transcendenceUpgradeDelta dd { font-size:18px; line-height:1.5; }
+.transcendenceCooldown small { display:block; margin-top:5px; font:400 12px/1.4 var(--f-body,sans-serif); color:#a8c0c9; }
+@media(max-width:540px){ .transcendenceTotals { grid-template-columns:repeat(2,minmax(0,1fr)); } .transcendenceCooldown {grid-column:1 / -1;} }
+
 /* KM-043: the phone view shares the solo game and changes only its presentation. */
 .mobileNav, .mobileDock { display: none; }
 body.mobile-mode {
@@ -3413,13 +3418,14 @@ function renderTranscendentMiner() {
   const unlocked = transcendentUnlocked();
   const quote = transcendenceQuote();
   const skills = transcendentSkills();
+  const missing = missingTranscendenceMiners();
   $('#transcendentMiner').innerHTML = `
     <section class="transcendentCard" data-unlocked="${unlocked}">
       <div class="transcendentPortrait">${GameVisual.span('singularity', 0)}</div>
       <div class="transcendentInfo">
         <div class="transcendentRank">초월 광부 · ${unlocked ? '보유' : '해금 조건'}</div>
-        <h3>${transcendentMiner.name}</h3>
-        ${unlocked ? `<div class="transcendentGoals">스킬 쿨타임 ${transcendencePercent(1 - transcendentCooldownMultiplier())} 감소</div><ul>${skills.map(skill => `<li><strong>${esc(skill.name)}</strong> <code>${esc(skill.command)}</code><br>${esc(skill.summary)}</li>`).join('')}</ul>`
+        <h3>${transcendentMiner.name}${unlocked ? ` Lv.${transcendentLevel()}` : ''}</h3>
+        ${unlocked ? `<div class="transcendentGoals">스킬 쿨타임 ${transcendencePercent(1 - transcendentCooldownMultiplier())} 감소 · 스킬 ×${transcendentPowerMultiplier().toFixed(2)} / 협공 ×${transcendentPowerMultiplier(true).toFixed(2)}</div><ul>${skills.map(skill => `<li><strong>${esc(skill.name)}</strong> <code>${esc(skill.command)}</code><br>${esc(skill.summary)}</li>`).join('')}</ul><div class="transcendentGoals">전설·신화 ${transcendenceMiners.length-missing.length} / ${transcendenceMiners.length}종 · 13종의 모든 보유 레벨을 한 번에 소모${missing.length ? `<br>부족: ${missing.map(m=>esc(m.n)).join(', ')}` : ''}</div><button id="transcendentRitualButton" type="button" class="buy gem" ${quote ? '' : 'disabled'}>초월 강화 · Lv.${transcendentLevel()+1}</button>`
           : quote ? `<div class="transcendentGoals">전설·신화 광부 ${quote.total}레벨 소모 · 쿨타임 ${transcendencePercent(quote.reduction)} 감소</div><button id="transcendentRitualButton" type="button" class="buy gem">초월 의식</button>`
           : `<div class="transcendentGoals"><span>전설 광부 ${ownedLegendaryCount()} / ${legendaryMiners.length}</span><span>코드 한 줄 금메달 ${hasCodeGold() ? '✓' : '미달성'}</span></div>`}
       </div>
@@ -3641,6 +3647,20 @@ function transcendentUnlocked() {
   return S.transcendence?.unlocked === true;
 }
 
+function transcendentLevel() {
+  if (!transcendentUnlocked()) return 0;
+  const value = S.transcendence.level;
+  return Number.isSafeInteger(value) && value >= 1 ? value : 1;
+}
+
+function transcendentPowerMultiplier(ambient = false, level = transcendentLevel()) {
+  return 1 + Math.max(0, level - 1) * (ambient ? 0.10 : 0.25);
+}
+
+function missingTranscendenceMiners() {
+  return transcendenceMiners.filter(miner => !transcendenceOwnedLevel(miner));
+}
+
 function hasTranscendenceCollection() {
   return hasCodeGold() && ownedLegendaryCount() === legendaryMiners.length;
 }
@@ -3650,7 +3670,7 @@ function transcendenceOwnedMiners() {
 }
 
 function transcendenceQuote() {
-  if (transcendentUnlocked() || !hasTranscendenceCollection()) return null;
+  if (transcendentUnlocked() ? missingTranscendenceMiners().length > 0 : !hasTranscendenceCollection()) return null;
   let legendary = 0;
   let mythic = 0;
   for (const { miner, level } of transcendenceOwnedMiners()) {
@@ -3658,7 +3678,7 @@ function transcendenceQuote() {
     else mythic += level;
   }
   const total = legendary + mythic;
-  return { legendary, mythic, total, reduction:Math.min(transcendenceReductionCap, transcendenceReductionPerLevel * total) };
+  return { legendary, mythic, total, reduction:Math.min(transcendenceReductionCap, (1 - transcendentCooldownMultiplier()) + transcendenceReductionPerLevel * total) };
 }
 
 function transcendentCooldownMultiplier() {
@@ -7320,12 +7340,13 @@ function companionStrike(cm, strength, {
   force = 1, blocks = 1, rows = 1, order = 'front', spread = false, gold = 1, rawBudget,
   ambient = false, rank = 3, bossLimit = rank >= 4 ? 0.24 : 0.16,
 } = {}) {
+  const upgrade = rank === 5 ? transcendentPowerMultiplier(ambient) : 1;
   if (S.boss) {
     const hit = S.boss;
     const fraction = ambient ? 0.003 + (rank - 3) * 0.002
       : Math.min(bossLimit * 0.8, force * (rank >= 4 ? 0.017 : 0.012));
     const rawDamage = Math.max(bossHit(cm) * force, hit.max * fraction) * strength;
-    const damage = Math.min(hit.hp, hit.max * bossLimit, rawDamage);
+    const damage = Math.min(hit.hp, hit.max * Math.min(0.75, bossLimit * upgrade), rawDamage * upgrade);
     if (damage > 0 && gold > 1) {
       const bonus = damage * vph() * (gold - 1);
       addGold(bonus);
@@ -7338,6 +7359,7 @@ function companionStrike(cm, strength, {
   const power = Math.min(playerHit(), blockHealth * 1.65) + (ambient ? 0 : blockHealth * 0.36);
   let budget = Number.isFinite(rawBudget) ? Math.max(0, rawBudget)
     : Math.min(power * force * strength, blockHealth * (ambient ? 0.18 + (rank - 3) * 0.06 : COLS * rows));
+  budget *= upgrade;
   let damage = 0;
   let broken = 0;
   let goldTotal = 0;
@@ -8259,7 +8281,7 @@ function mythicTrialLoadout() {
   const honor = owned.sort((a, b) => b.item.r - a.item.r || b.level - a.level).slice(0, 3).map(({ item, level }) => ({
     item,
     name: companionSkill(item.id)?.name || item.sk || '초월 공명',
-    damage: Math.min(14, Math.round(4 + item.r * 1.6 + Math.min(10, level) * 0.45)),
+    damage: Math.round(Math.min(14, Math.round(4 + item.r * 1.6 + Math.min(10, level) * 0.45)) * (item.id === transcendentMiner.id ? transcendentPowerMultiplier(true) : 1)),
   }));
   return { tool:9 + Math.min(6, Math.round(toolBonus)), workers, honor };
 }
@@ -8679,11 +8701,12 @@ function transcendenceRitualDetails() {
   const quote = transcendenceQuote();
   if (!quote) return null;
   const owned = transcendenceOwnedMiners();
-  return { quote, owned, key:owned.map(({ miner, level }) => `${miner.id}:${level}`).join(',') };
+  return { quote, owned, key:JSON.stringify([transcendentLevel(), S.transcendence, owned.map(({ miner, level }) => [miner.id,level])]) };
 }
 
 function renderTranscendenceRitual(details, changed = false) {
   const { quote, owned } = details;
+  const upgrading = transcendentUnlocked(), level = transcendentLevel();
   const rows = owned.map(({ miner, level }) => `
     <li data-transcendence-cost data-id="${miner.id}" data-level="${level}" data-rarity="${miner.r}">
       <span>${esc(miner.n)}</span><strong>Lv.${level}</strong>
@@ -8692,19 +8715,20 @@ function renderTranscendenceRitual(details, changed = false) {
     <div class="transcendenceRitual">
       <header class="transcendenceRitualHead">
         <div class="transcendenceRitualPortrait">${GameVisual.span('singularity', 0)}</div>
-        <div><p class="transcendenceEyebrow">특이점 제로 합류</p><h2 id="transcendenceDialogTitle">초월 의식</h2></div>
+        <div><p class="transcendenceEyebrow">특이점 제로 ${upgrading ? `Lv.${level} → Lv.${level+1}` : '합류'}</p><h2 id="transcendenceDialogTitle">${upgrading ? '초월 강화 의식' : '초월 의식'}</h2></div>
       </header>
       <p>의식을 시작하면 아래 전설·신화 광부의 모든 보유 레벨이 소모됩니다. 소모한 광부는 되돌릴 수 없어요.</p>
       ${changed ? '<p class="transcendenceChanged" role="alert">소모 목록이 바뀌었습니다. 새 목록을 확인하세요.</p>' : ''}
       <dl class="transcendenceTotals">
         <div><dt>전설 레벨 합</dt><dd>${quote.legendary}</dd></div>
         <div><dt>신화 레벨 합</dt><dd>${quote.mythic}</dd></div>
-        <div><dt>초월 스킬 대기시간 감소</dt><dd data-transcendence-reduction>${transcendencePercent(quote.reduction)}</dd></div>
+        <div class="transcendenceCooldown"><dt>초월 스킬 대기시간 감소</dt><dd data-transcendence-reduction>${upgrading ? transcendencePercent(1 - transcendentCooldownMultiplier()) + ' → ' : ''}${transcendencePercent(quote.reduction)} <small>(최대 60%)</small></dd></div>
+        ${upgrading ? `<div class="transcendenceUpgradeDelta"><dt>스킬 위력 / 협공 위력</dt><dd>×${transcendentPowerMultiplier().toFixed(2)} → ×${transcendentPowerMultiplier(false,level+1).toFixed(2)}<br>협공 ×${transcendentPowerMultiplier(true).toFixed(2)} → ×${transcendentPowerMultiplier(true,level+1).toFixed(2)}</dd></div>` : ''}
       </dl>
       <ul class="transcendenceCostList" aria-label="소모할 광부와 레벨">${rows}</ul>
       <footer class="transcendenceActions">
         <button type="button" class="transcendenceQuiet" data-transcendence-action="cancel">취소</button>
-        <button type="button" class="transcendencePrimary" data-transcendence-action="confirm">광부를 소모하고 획득</button>
+        <button type="button" class="transcendencePrimary" data-transcendence-action="confirm">${upgrading ? '13종을 모두 소모하고 강화' : '광부를 소모하고 획득'}</button>
       </footer>
     </div>`;
 }
@@ -8738,11 +8762,23 @@ function confirmTranscendenceRitual() {
     return;
   }
 
-  const { reduction, ...absorbed } = details.quote;
-  for (const miner of transcendenceMiners) delete S.honor[miner.id];
-  S.transcendence = { unlocked:true, absorbed, reduction };
+  const { reduction, legendary, mythic, total } = details.quote;
+  const prior = S.transcendence ?? {}, old = prior.absorbed ?? {};
+  const count = value => Number.isSafeInteger(value) && value > 0 ? value : 0;
+  const next = { ...prior, unlocked:true, level:transcendentLevel()+1, reduction,
+    absorbed:{ legendary:count(old.legendary)+legendary, mythic:count(old.mythic)+mythic, total:count(old.total)+total } };
+  const honor = { ...S.honor };
+  for (const miner of transcendenceMiners) delete honor[miner.id];
+  // Persist the entire exchange before changing live ownership. Failed writes consume nothing.
+  try {
+    localStorage.setItem(ACTIVE_SAVE_KEY, JSON.stringify({ ...S, honor, transcendence:next, transcendenceRevealSeen:false, last:now() }));
+  } catch (_) {
+    toast('저장 공간을 확인해 주세요. 광부는 소모되지 않았습니다.');
+    return;
+  }
+  S.honor = honor;
+  S.transcendence = next;
   S.transcendenceRevealSeen = false;
-  save();
 
   const oldCompanionPrompt = lineKind === 'companion';
   resetCompanionRuntime();
@@ -8769,8 +8805,9 @@ function maybeShowTranscendenceReveal() {
       </div>
       <div class="transcendenceRevealArt">${GameVisual.span('singularity', 0)}</div>
       <div class="transcendenceRevealTitle">
-        <p class="transcendenceEyebrow">초월 광부 획득</p>
-        <h2 id="transcendenceDialogTitle">${transcendentMiner.name}</h2>
+        <p class="transcendenceEyebrow">${transcendentLevel() > 1 ? '초월 강화 완료' : '초월 광부 획득'}</p>
+        <h2 id="transcendenceDialogTitle">${transcendentMiner.name} · Lv.${transcendentLevel()}</h2>
+        ${transcendentLevel() > 1 ? `<p class="transcendenceRevealBonus">스킬 위력 ×${transcendentPowerMultiplier().toFixed(2)} · 협공 위력 ×${transcendentPowerMultiplier(true).toFixed(2)}</p>` : ''}
         ${bonus}
       </div>
       <footer class="transcendenceActions transcendenceRevealActions">
@@ -8792,7 +8829,7 @@ function maybeShowTranscendenceReveal() {
     'all items': '전설·신화 광부와 장비를 최소 Lv.1로 지급',
     'mythic shards': '신화 광부·장비에 각각 조각 4개를 채워 도전 가능',
     'gold medals': '모든 타자 단계 해금과 금메달 지급',
-    'transcendence': '전설 광부와 코드 한 줄 금메달을 지급해 초월 의식 준비',
+    'transcendence': '초월 미보유 시 최초 의식, 보유 시 13종 전체로 강화 의식 준비',
     'zero drill': '사건지평선 굴착기를 지급하고 손 슬롯에 장착',
   };
   window.km = function command(input = 'help') {
@@ -8839,10 +8876,9 @@ function maybeShowTranscendenceReveal() {
         STAGES.forEach((_, index) => { S.medals[index] = 3; });
         break;
       case 'transcendence':
-        if (transcendentUnlocked()) return '특이점 제로를 이미 보유 중입니다.';
         S.unlocked = STAGES.length;
         S.medals[codeExamIndex] = 3;
-        for (const miner of legendaryMiners) S.honor[miner.id] = Math.max(S.honor[miner.id] || 0, 1);
+        for (const miner of (transcendentUnlocked() ? transcendenceMiners : legendaryMiners)) S.honor[miner.id] = Math.max(S.honor[miner.id] || 0, 1);
         break;
       case 'zero drill':
         S.equip.owned[zeroDrillItem.id] = 1;
@@ -9232,7 +9268,8 @@ window.__km = { S:()=>S, onChar, cur:()=>EX.open?EX.line[EX.pos]:line[pos], sim:
     variantSnapshot, specialistSnapshot,
     mobilePracticePool:stage=>mobilePracticeStages([STAGES[stage]])[0].chars,
     liveVfxSnapshot:liveVfx.snapshot,
-    transcendentUnlocked, transcendenceQuote, transcendentCooldownMultiplier,
+    transcendentUnlocked, transcendenceQuote, transcendentCooldownMultiplier, transcendentLevel, transcendentPowerMultiplier,
+    testTranscendentStrike:(ambient=false)=>companionStrike(1, 1, {rank:5,force:1,ambient,bossLimit:0.1}),
     impactState:()=>({ frame:mineImpactFrames.at(-1), audio:AC?.state, stage:mineImpactMeter.dataset.stage }), examOpen, examCountdown, claimable, virus:()=>virus, startVirus };
 })();
 </script>
