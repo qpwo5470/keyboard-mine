@@ -1763,7 +1763,8 @@ window.KM_AUDIO_MIX={"version": 1, "stems": {"fire-dive-whoosh": {"gain": 1.0, "
     if(key)recent.set(key,stamp);recent.set(throttleKey,stamp);while(recent.size>256)recent.delete(recent.keys().next().value);
     const tier=profile.rank===5?1.15:profile.rank===4?1:.82;
     const power=Number.isFinite(options.power)?Math.max(.25,Math.min(1,options.power)):1;
-    const gain=(profile.gain??1)*tier*(phase==='cast'?.40:follow?.03:.55)*(.65+.35*power);
+    // Full casts keep their body and tail; repeated contacts retain the short, quiet mix.
+    const gain=(profile.gain??1)*tier*(phase==='cast'?.62:follow?.03:.85)*(.65+.35*power);
     const voice=sample(phase==='cast'?profile.cast:profile.impact,{gain,rate:(profile.rate??1)*(follow?1.12:1),pan:options.pan??0,
       ally:!!options.ally,priority:!follow,maxDuration:follow?.18:undefined,expected:options.at,tag:`skill-${phase}`,effect:id,rank:profile.rank,scope});
     if(voice){stats.played++;stats.lastEvent=`sample:${id}:${phase}`;stats.events[`sample:${id}:${phase}`]=(stats.events[`sample:${id}:${phase}`]||0)+1;if(!follow)duck(profile.rank===5?.10:.28);}
@@ -1794,7 +1795,7 @@ window.KM_AUDIO_MIX={"version": 1, "stems": {"fire-dive-whoosh": {"gain": 1.0, "
     const growth=1-Math.exp(-freezeKeys/60),gain=.06+growth*.32,rate=.78+growth*.42,cutoff=1100+growth*6200;
     sampleStats.charge={keys:freezeKeys,growth,gain,rate,cutoff,active:false};
     if(!active||muted()||!unlocked||scene==='idle'){stopCharge(false);return;}
-    if(changed)sample('time-freeze-onset',{gain:.35,tag:'freeze-start'});
+    if(changed)sample('time-freeze-onset',{gain:.50,tag:'freeze-start'});
     if(!freezeVoice)freezeVoice=sample('time-freeze-charge-loop',{gain,rate,loop:true,tag:'freeze-charge'});
     if(freezeVoice){
       const at=context.currentTime;freezeVoice.level.gain.cancelScheduledValues(at);
@@ -1818,7 +1819,7 @@ window.KM_AUDIO_MIX={"version": 1, "stems": {"fire-dive-whoosh": {"gain": 1.0, "
     if(frame.sampledProfile)return playSkillCue(frame.id,frame.audioPhase||((frame.light||frame.phase!=='cast')?'followup':'impact'),{id:`${frame.start}:${index}`,at:frame.start+hit.at,power:hit.power,pan:Math.max(-.8,Math.min(.8,(hit.offsetX||0)*.25))});
     if(!frame.sampledAudio)return false;
     const major=hit.power===frame.strongest?.power || index===frame.contacts.length-1;
-    sample(major?'fire-dive-burst':'fire-dive-impact',{gain:major?.55:.22+hit.power*.12,pan:(hit.offsetX||0)*.25,expected:frame.start+hit.at,tag:'fire-contact'});
+    sample(major?'fire-dive-burst':'fire-dive-impact',{gain:major?.82:.22+hit.power*.12,pan:(hit.offsetX||0)*.25,expected:frame.start+hit.at,tag:'fire-contact'});
     if(major)duck(.12);
     return true;
   }
@@ -1892,7 +1893,7 @@ window.KM_AUDIO_MIX={"version": 1, "stems": {"fire-dive-whoosh": {"gain": 1.0, "
     if (!unlocked || !context || context.state!=='running' || muted()) { stats.dropped++; return false; }
     if(event==='freezeRelease') {
       stopCharge();
-      if(sample('time-freeze-release',{gain:.52+Math.min(1,options.power||0)*.14,tag:'freeze-release',expected:options.at})) {
+      if(sample('time-freeze-release',{gain:.74+Math.min(1,options.power||0)*.20,tag:'freeze-release',expected:options.at})) {
         duck(.1);stats.played++;stats.lastEvent=event;stats.events[event]=(stats.events[event]||0)+1;return true;
       }
     }
@@ -4566,7 +4567,7 @@ const liveVfx = (() => {
     frames.push({ id, effect, boss, target, color, gear, phase, audioPhase, role, full, fatal, start:now,
       damage, cut, duration, contacts, finish, emitted:0, strongest, light:!full });
     const queued=frames[frames.length-1];
-    const supportMoment={crown:.53,fairywing:.48,galaxy:.65,babyuni:.67,cat:phase==='cast'?.24:.63}[id];
+    const supportMoment={dragon:.66,crown:.53,fairywing:.48,galaxy:.65,babyuni:.67,cat:phase==='cast'?.24:.63}[id];
     if(!contacts.length&&supportMoment)queued.audioSupportAt=duration*supportMoment;
     window.GameAudio?.skillFrame(queued);
     if (frames.length > 10) {
@@ -8043,8 +8044,11 @@ function companionCorrectKey(cm, struckRow = S.row) {
     const report = companionFollowups[id](cm, effect);
     const skill = companionSkills[id];
     recordRankContribution('honor',companionSourceId(id),{damage:boss?companionBossDamage(boss,previousHp):report.damage});
-    queueCompanionImpact({ id, skill, boss, damage:boss ? companionBossDamage(boss, previousHp) : report.damage,
-      phase:'followup', audioPhase:'followup', style:skill.effect, rank:companionRanks.get(companionSourceId(id)), target:report.columns[0] });
+    const damage = boss ? companionBossDamage(boss, previousHp) : report.damage;
+    const audioPhase = damage > 0 && !effect.impactPresented ? 'impact' : 'followup';
+    if (damage > 0) effect.impactPresented = true;
+    queueCompanionImpact({ id, skill, boss, damage,
+      phase:'followup', audioPhase, style:skill.effect, rank:companionRanks.get(companionSourceId(id)), target:report.columns[0] });
     if (boss) updateBossExpedition();
     if (effect.remaining === 0) companionEffect = null;
   }
@@ -8091,6 +8095,9 @@ function companionCorrectKey(cm, struckRow = S.row) {
     companionStrike(cm, power, { force:4.2, rank, bossLimit:0.10 });
   }
   const damage = companionBossDamage(boss, previousHp);
+  // A delayed skill gets one full first contact; an immediate cast already used it.
+  if (companionEffect?.id === id) companionEffect.impactPresented = (boss ? damage : report?.damage) > 0;
+  if (id === 'invader' && codeEchoState) codeEchoState.impactPresented = (boss ? damage : report?.damage) > 0;
   recordRankContribution('honor',companionSourceId(id),{damage:boss?damage:report?.damage});
   const marked = false; // Each mythic now owns its world-state followup.
   if (marked) companionFracture = { boss, remaining:4, strength:power, skill, expires:time + 30000 };
@@ -8271,6 +8278,10 @@ function captureVariantKey(cm) {
 }
 
 function showVariantImpact(id, boss, damage, style, target, audioPhase) {
+  if (id === 'star' && damage > 0 && variantStar) {
+    audioPhase = variantStar.impactPresented ? 'followup' : 'impact';
+    variantStar.impactPresented = true;
+  }
   if(id!=='eagle')rankMajorCorrect=S.st.correct;
   recordRankContribution('honor',id,{damage});
   // The eagle's recurring burn keeps its brief ember feedback while the dive resolves.
@@ -8366,8 +8377,9 @@ function applyStarCorrect() {
   if(!star||star.remaining<=0)return;
   if(star.constellation) {
     star.constellation=false;
+    const boss=S.boss;
     const report=companionSkillStrike('star',1,star.power,{force:10,blocks:COLS,rows:2,bossLimit:.12});
-    if(report.damage>0)showVariantImpact('star',!!report.boss,report.damage,'meteor',report.columns[0]);
+    if(report.damage>0)showVariantImpact('star',boss,report.damage,'meteor',report.columns[0]);
     return;
   }
   if(star.nextShot>0)return;
@@ -8580,6 +8592,9 @@ function dragonVaultCorrect(cm) {
   addGold(gold);S.gems+=gems;if(ticket)S.tickets++;
   vault.lastHarvest={gold,gems,tickets:Number(ticket)};
   recordRankContribution('honor','dragon',vault.lastHarvest);
+  // Harvest presentation is tied to the 24th accepted key, never idle damage.
+  queueCompanionImpact({id:'dragon',skill:{...companionSkills.dragon,name:'황금 금맥 수확'},
+    boss:null,damage:0,phase:'cast',rank:3,target:'support'});
   save();
   toast(`금맥 수확 · 골드 +${fmt(gold)} · 보석 +${fmt(gems)}${ticket?' · 뽑기권 +1':''}`,true);
 }
@@ -8621,7 +8636,9 @@ function showCodeEchoHit(cm, struckRow, damage) {
   const skill = companionSkill('invader');
   const boss = isBossRow(struckRow);
   const bonus = Number.isFinite(damage) ? Math.max(0, damage) : boss ? bossHit(cm) : playerHit();
-  queueCompanionImpact({ skill, boss, damage: bonus, phase: 'followup', style: 'codeEcho', rank: 3 });
+  const audioPhase = bonus > 0 && !codeEchoState.impactPresented ? 'impact' : 'followup';
+  if (bonus > 0) codeEchoState.impactPresented = true;
+  queueCompanionImpact({ skill, boss, damage: bonus, phase: 'followup', audioPhase, style: 'codeEcho', rank: 3 });
 }
 
 function specialistCanPrompt(id) {
@@ -8676,7 +8693,7 @@ function rankZeroCast(id,cm,power){
   }
   if(!rankZeroChain||!rankChainPromptAllowed(id)) return false;
   // A newly typed command may mark the current phase; an old strike never spills into it.
-  if(rankZeroChain.boss && S.boss && rankZeroChain.boss!==S.boss){rankZeroChain.boss=S.boss;rankZeroChain.row=S.row;}
+  if((rankZeroChain.boss||null)!==(S.boss||null)){rankZeroChain.boss=S.boss;rankZeroChain.row=S.row;}
   rankZeroChain.stage++;
   if(id==='singularity-overdrive') {
     armCompanionEffect(id,power,6);
@@ -8712,7 +8729,9 @@ function rankGameplayCorrect(cm,struckRow){
   rankMajorCorrect=S.st.correct;
   const report=companionSkillStrike(state.id,cm,state.power,{force:state.id==='brachio'?10:9+3*(3-state.remaining),blocks:COLS,rows:1,spread:true,bossLimit:state.id==='brachio'?.14:.20});
   recordRankContribution('honor',state.id,{damage:report.damage});
-  queueCompanionImpact({id:state.id,skill:companionSkills[state.id],boss:state.boss,damage:report.damage,phase:'followup',audioPhase:'followup',rank:4,style:companionSkills[state.id].effect,target:report.columns[0]});
+  const audioPhase=report.damage>0&&!state.impactPresented?'impact':'followup';
+  if(report.damage>0)state.impactPresented=true;
+  queueCompanionImpact({id:state.id,skill:companionSkills[state.id],boss:state.boss,damage:report.damage,phase:'followup',audioPhase,rank:4,style:companionSkills[state.id].effect,target:report.columns[0]});
   if(!state.remaining)rankTerrain=null;
 }
 function rankGameplayStatus(){
@@ -9652,7 +9671,7 @@ function maybeShowTranscendenceReveal() {
     if(queued&&queued!==before&&(!frame.id||!KMFX.get(frame.id))){
       const profile=companionAttackProfiles[frame.style]||'energy';
       const at=companionImpactMotion.matches?0:queued.duration*(frame.phase==='cast'&&frame.style==='dive'?.43:profile==='beam'?.31:.47);
-      queued.audioFrame={id,start:queued.time,duration:queued.duration,phase:frame.phase,full:frame.phase==='cast',light:frame.phase!=='cast',contacts:frame.damage>0?[{at,power:.2}]:[]};
+      queued.audioFrame={id,start:queued.time,duration:queued.duration,phase:frame.phase,audioPhase:frame.audioPhase,full:frame.phase==='cast',light:frame.phase!=='cast',contacts:frame.damage>0?[{at,power:.2}]:[]};
       audio.skillFrame(queued.audioFrame);
     }
     return out;
