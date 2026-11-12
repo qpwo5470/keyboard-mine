@@ -1,7 +1,14 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<link rel="icon" href="data:,">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<meta name="theme-color" content="#080f14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="키보드 광산">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>키보드 광산 · KEYSTONE</title>
@@ -1351,6 +1358,18 @@ body.mobile-mode[data-mobile-panel="manage"] .companionAttackOverlay { display: 
 .pagesRaidLink { color: var(--gem); font-weight: 800; text-decoration: none; }
 .launchRaid.pagesRaidLink { display: inline-flex; align-items: center; justify-content: center; min-height: 39px; margin-top: 10px; padding: 7px 14px; background: #162c3a; border: 1px solid #3d647b; border-radius: 8px; }
 .pagesRaidLink:focus-visible { outline: 2px solid var(--gem); outline-offset: 2px; }
+.installLine { margin-top: 12px; }
+.installApp { border-color: #416d60; color: #a5e8c9; min-height: 42px; }
+#installGuide { color: #e4f1ec; background: #12242c; border: 1px solid #477268; border-radius: 16px; width: min(450px, calc(100vw - 28px)); padding: 22px; max-height: calc(100dvh - 28px); overflow: auto; }
+#installGuide::backdrop { background: #030c12cf; }
+#installGuide form { display: flex; justify-content: flex-end; }
+#installGuide h2 { font-size: 23px; margin: 10px 0 14px; }
+#installGuide h3 { color: #9ae5c7; font-size: 15px; margin-bottom: 4px; }
+#installGuide p { font-size: 13px; line-height: 1.7; }
+#installGuide .installNote { color: #93aaa9; font-size: 11px; }
+.installed-app body.mobile-mode { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+.installed-app body.mobile-mode.mobile-input-focus .wrap { padding-top: max(5px, env(safe-area-inset-top)); padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+
 </style>
 </head>
 <body>
@@ -2500,7 +2519,7 @@ $('#exClose').onclick=e=>{ e.currentTarget.blur(); examClose(); };
 /* ---------- 키 입력 ---------- */
 let imeTimer=0;
 addEventListener('keydown', e=>{
-  if (e.target?.id === 'mobileInput') return;
+  if (e.target?.id === 'mobileInput' || document.querySelector('#installGuide[open]')) return;
   if (transcendenceDialogOpen()) return;
   if (mythicTrialOpen()) {
     const trialKey = CODEMAP[e.code]?.[e.shiftKey ? 1 : 0];
@@ -8842,7 +8861,7 @@ function resumeGame(){gamePaused=false;gameStarted=true;launch.hidden=true;launc
 launchButton.onclick=resumeGame;$('#pauseBtn').onclick=()=>openLaunch('pause');$('#helpBtn').onclick=()=>openLaunch('help');$('#soundBtn').onclick=e=>{e.currentTarget.blur();$('#mute').click();updateExpedition()};
 $('#fullscreenBtn').onclick=async e=>{e.currentTarget.blur();try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch(_){toast('이 브라우저에서는 전체화면을 지원하지 않아요.')}};
 addEventListener('keydown', e => {
-  if (launch.hidden || e.code !== 'Tab') return;
+  if (launch.hidden || document.querySelector('#installGuide[open]') || e.code !== 'Tab') return;
   const buttons = [...launch.querySelectorAll('button, a[href]')].filter(button => button.getClientRects().length);
   const index = buttons.indexOf(document.activeElement);
   e.preventDefault();
@@ -8993,6 +9012,43 @@ for (const link of document.querySelectorAll('[data-pages-raid]')) {
   link.addEventListener('click', attachProfile);
   link.addEventListener('auxclick', event => { if (event.button === 1) attachProfile(); });
 }
+
+/* Installation UI belongs only to the hosted game, not the offline HTML file. */
+(() => {
+  let installPrompt = null;
+  const button = document.createElement('button');
+  button.id = 'installApp'; button.type = 'button'; button.className = 'utility installApp';
+  button.textContent = '홈 화면에 설치 · 전체 화면으로 플레이';
+  const host = document.createElement('div'); host.className='installLine'; host.append(button);
+  document.querySelector('#launchButton').after(host);
+  const fullscreen = matchMedia('(display-mode: fullscreen)'), standalone = matchMedia('(display-mode: standalone)');
+  const sync = () => {
+    const installed = fullscreen.matches || standalone.matches || navigator.standalone === true;
+    document.documentElement.classList.toggle('installed-app', installed);
+    host.hidden = installed || (typeof DEV_MODE !== 'undefined' && DEV_MODE);
+  };
+  fullscreen.addEventListener('change', sync); standalone.addEventListener('change', sync);
+  addEventListener('beforeinstallprompt', event => { event.preventDefault(); installPrompt=event; sync(); });
+  addEventListener('appinstalled', () => { installPrompt=null; host.hidden=true; });
+  button.addEventListener('click', async () => {
+    if (installPrompt) {
+      const prompt=installPrompt; installPrompt=null;
+      try { await prompt.prompt(); const choice=await prompt.userChoice; if(choice.outcome==='accepted') host.hidden=true; }
+      catch { showGuide(); }
+    } else showGuide();
+  });
+  function showGuide() {
+    let dialog=document.querySelector('#installGuide');
+    if(!dialog){
+      dialog=document.createElement('dialog'); dialog.id='installGuide';
+      dialog.innerHTML='<form method="dialog"><button class="utility" aria-label="설치 안내 닫기">닫기</button></form><h2>홈 화면에서 광산으로</h2><p>설치한 아이콘으로 열면 브라우저 주소창 없이 플레이할 수 있어요.</p><h3>아이폰 · 아이패드</h3><p>Safari에서 이 페이지를 열고 <b>공유 → 홈 화면에 추가</b>를 선택하세요. <b>웹 앱으로 열기</b>가 보이면 켜 둔 채 추가하세요.</p><h3>안드로이드</h3><p>Chrome 메뉴의 <b>앱 설치</b> 또는 <b>홈 화면에 추가 → 설치</b>를 선택하세요.</p><p class="installNote">설치한 아이콘으로 다시 실행해 주세요. 기기와 브라우저에 따라 시스템 표시줄은 남을 수 있어요.</p>';
+      document.body.append(dialog);
+      dialog.addEventListener('close',()=>button.focus({preventScroll:true}));
+    }
+    dialog.showModal();
+  }
+  sync();
+})();
 
 /* 플레이 검증 인터페이스 */
 window.__km = { S:()=>S, onChar, cur:()=>EX.open?EX.line[EX.pos]:line[pos], sim:ms=>{simOffset+=ms; lastT+=ms; step(ms/1000);}, ui:updateUI, workerGps, fmt, kpm, pickDmg, workerDps, powerCap, EX,
