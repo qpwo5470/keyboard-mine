@@ -1801,7 +1801,7 @@ body.mobile-mode .mobileNav:has(.accountEntry){grid-template-columns:1fr 1.45fr 
     panel.querySelector('[data-audio-mute]').onclick=()=>setMuted(!settings.muted);
     panel.querySelector('[data-audio-music]').onchange=e=>setMusic(e.target.checked);
     for(const range of panel.querySelectorAll('[data-audio-volume]')) range.oninput=()=>setVolume(range.dataset.audioVolume,range.value/100);
-    const update=()=>{ const button=panel.querySelector('[data-audio-mute]');button.textContent=settings.muted?'소리 켜기':'음소거';button.setAttribute('aria-pressed',String(settings.muted));panel.querySelector('[data-audio-music]').checked=settings.musicEnabled;for(const range of panel.querySelectorAll('[data-audio-volume]')) { range.value=Math.round(settings[range.dataset.audioVolume]*100);range.nextElementSibling.textContent=range.value+'%'; }};
+    const update=()=>{ const button=panel.querySelector('[data-audio-mute]');button.textContent=settings.muted?'소리 꺼짐 · 켜기':'소리 켜짐 · 끄기';button.setAttribute('aria-pressed',String(!settings.muted));panel.querySelector('[data-audio-music]').checked=settings.musicEnabled;for(const range of panel.querySelectorAll('[data-audio-volume]')) { range.value=Math.round(settings[range.dataset.audioVolume]*100);range.nextElementSibling.textContent=range.value+'%'; }};
     listeners.add(update);update();container.appendChild(panel);return panel;
   }
   window.GameAudio={unlock,play,setMuted,setVolume,setMusic,setScene,mountControls,skillFrame,duck,clearPending,
@@ -10036,6 +10036,7 @@ const accountSave = (() => {
     dialog.removeAttribute('aria-busy');
     const card=(source,title,state,note)=>`<section class="saveCard" data-save-source="${source}" aria-labelledby="save-${source}-title"><header><span class="saveSourceIcon" aria-hidden="true">${source==='local'?'▣':'☁'}</span><div><small>${source==='local'?'LOCAL SAVE':'ACCOUNT SAVE'}</small><h3 id="save-${source}-title">${title}</h3></div></header>${summary(state)}<footer><p>${note}</p><button data-${source} ${state?'':'disabled'}>${title} 사용 →</button></footer></section>`;
     show(`<h2>어느 진행으로 이어 할까요?</h2><p>${esc(account.name)} 계정 · 두 진행은 합쳐지지 않습니다.<br>선택하지 않은 진행도 복원용으로 보관합니다.</p><div class="saveComparison">${card('local','이 기기의 진행',local,'선택하면 계정의 현재 진행을 교체합니다.')}${card('remote','계정의 진행',remote.state,'서버 확인 · '+dateLabel(remote.updated))}</div>`);
+    const heading=dialog.querySelector('h2');heading.tabIndex=-1;heading.focus({preventScroll:true});dialog.scrollTop=0;
     dialog.querySelector('[data-local]').onclick=async()=>{markChoice('local');try{
       const preview=await api('save/preview-import',{state:local});
       if(preview.revision!==remote.revision){await choose(local,preview);return;}
